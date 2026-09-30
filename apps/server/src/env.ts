@@ -12,6 +12,14 @@ function readSecret(): string {
   return DEV_SECRET
 }
 
+function readTrustedProxies(): ReadonlySet<string> {
+  const listed = (process.env.TRUSTED_PROXIES ?? '')
+    .split(',')
+    .map((ip) => ip.trim())
+    .filter(Boolean)
+  return new Set(['127.0.0.1', '::1', ...listed])
+}
+
 export const env = {
   isProd,
   port: Number(process.env.PORT ?? 8686),
@@ -21,5 +29,6 @@ export const env = {
   backupsDir: join(dataDir, 'backups'),
   appSecret: readSecret(),
   publicUrl: (process.env.PUBLIC_URL ?? '').replace(/\/$/, ''),
+  trustedProxies: readTrustedProxies(),
   webDist: resolve(process.env.WEB_DIST ?? join(import.meta.dir, '../../web/dist')),
 }

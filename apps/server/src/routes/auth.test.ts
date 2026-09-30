@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { createClient, createTestDeps } from '../test-utils'
+import { createClient, createTestDeps, seedUser } from '../test-utils'
 
 describe('auth flow', () => {
   test('setup creates the first admin once', async () => {
@@ -87,5 +87,27 @@ describe('auth flow', () => {
     expect((await createClient(deps).post('/devices/pair', { code, name: '重复' })).status).toBe(
       400,
     )
+  })
+})
+
+describe('rate limiting', () => {
+  test('ignores forged forwarding headers from untrusted peers when rate limiting', async () => {
+    const deps = createTestDeps()
+    await seedUser(deps, 'dad', 'admin')
+    const attacker = createClient(deps, {}, { ip: '192.0.2.20' })
+    const wrong = { username: 'dad', password: 'wrong-password' }
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const forged = createClient(
+        deps,
+        { 'x-forwarded-for': `198.51.100.${attempt}`, 'x-real-ip': `198.51.100.${attempt}` },
+        { ip: '192.0.2.20' },
+      )
+      expect((await forged.post('/auth/login', wrong)).status).toBe(400)
+    }
+    expect((await attacker.post('/auth/login', wrong)).status).toBe(429)
+    const neighbour = createClient(deps, {}, { ip: '192.0.2.21' })
+    expect(
+      (await neighbour.post('/auth/login', { username: 'dad', password: 'secret123' })).status,
+    ).toBe(200)
   })
 })
