@@ -34,7 +34,10 @@ export function ThemePicker({
             value === theme ? 'ring-accent' : 'ring-transparent hover:ring-line',
           )}
         >
-          <span className="relative h-16 rounded-xl" style={{ background: THEME_SWATCHES[theme] }}>
+          <span
+            className="relative block h-16 w-full shrink-0 rounded-xl"
+            style={{ background: THEME_SWATCHES[theme] }}
+          >
             {value === theme ? (
               <Check className="absolute right-2 bottom-2 size-4 rounded-full bg-accent p-0.5 text-accent-fg" />
             ) : null}
