@@ -32,7 +32,7 @@ export function useShoppingRealtime(): void {
     void qc.invalidateQueries({ queryKey: homeKeys.home })
   })
   useRealtime('shopping.list.changed', () => {
-    void qc.invalidateQueries({ queryKey: shoppingKeys.lists })
+    void qc.invalidateQueries({ queryKey: shoppingKeys.all })
     void qc.invalidateQueries({ queryKey: homeKeys.home })
   })
 }
