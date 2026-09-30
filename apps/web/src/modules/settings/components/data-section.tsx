@@ -46,9 +46,9 @@ export function DataSection() {
           <ul className="divide-y divide-line">
             {backups.data.map((b) => (
               <li key={b.name} className="flex items-center gap-3 py-3">
-                <Database className="size-5 text-fg-muted" />
-                <div className="flex-1">
-                  <p className="font-mono text-sm">{b.name}</p>
+                <Database className="size-5 shrink-0 text-fg-muted" />
+                <div className="min-w-0 flex-1">
+                  <p className="break-all font-mono text-sm">{b.name}</p>
                   <p className="text-xs text-fg-muted">
                     {new Date(b.createdAt).toLocaleString('zh-CN')} · {formatSize(b.size)}
                   </p>

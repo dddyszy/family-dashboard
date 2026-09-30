@@ -47,7 +47,7 @@ export function WidgetFrame({
     <div className={cn('group relative h-full', editMode && 'animate-jiggle')}>
       <Glass
         className={cn(
-          'h-full overflow-hidden',
+          '@container/widget h-full overflow-hidden',
           !editMode && definition?.drawer && 'pressable cursor-pointer',
           editMode && 'cursor-grab active:cursor-grabbing',
         )}

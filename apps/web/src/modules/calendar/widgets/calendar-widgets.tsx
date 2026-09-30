@@ -141,8 +141,9 @@ function MembersWidget({ size }: WidgetProps) {
       <FitList className="gap-y-3">
         {members.map((m) => {
           const mine = today.filter((e) => eventMembers(e).includes(m.id))
+          // Avatar rings extend 2px beyond the box; keep them inside FitList's clipped area.
           return (
-            <li key={m.id} className="flex gap-2.5">
+            <li key={m.id} className="flex gap-2.5 p-[2px]">
               <Avatar user={m} size={28} />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{m.name}</p>

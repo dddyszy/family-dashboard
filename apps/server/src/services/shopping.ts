@@ -9,8 +9,8 @@ import type {
   UpdateListInput,
 } from '@shared/schemas/shopping'
 import { guessCategory, normalizeItemName, parseItemText } from '@shared/shopping-text'
-import { and, asc, desc, eq, gt, inArray, isNull, like, sql } from 'drizzle-orm'
-import { shoppingHistory, shoppingItems, shoppingLists } from '../db/schema'
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { shoppingItems, shoppingLists } from '../db/schema'
 import type { Deps, UserRow } from '../lib/context'
 import { newId } from '../lib/crypto'
 import { forbidden, notFound } from '../lib/errors'
@@ -155,17 +155,34 @@ export function listItems(deps: Deps, viewer: Viewer, listId: string): ShoppingI
     .map(toItem)
 }
 
-function historyCategory(deps: Deps, name: string): string | null {
-  return (
-    deps.db
-      .select({ category: shoppingHistory.category })
-      .from(shoppingHistory)
-      .where(eq(shoppingHistory.key, normalizeItemName(name)))
-      .get()?.category ?? null
-  )
+type HistoryEntry = ShoppingSuggestion & { key: string; lastAt: number }
+
+/** Legacy global history has no owner/list attribution, so derive suggestions from visible items. */
+function visibleHistory(deps: Deps, viewer: Viewer): HistoryEntry[] {
+  const rows = deps.db
+    .select({ item: shoppingItems })
+    .from(shoppingItems)
+    .innerJoin(shoppingLists, eq(shoppingLists.id, shoppingItems.listId))
+    .where(visibleWhere(shoppingLists, viewer))
+    .orderBy(desc(shoppingItems.updatedAt), desc(shoppingItems.createdAt))
+    .all()
+  const history = new Map<string, HistoryEntry>()
+  for (const { item } of rows) {
+    const key = normalizeItemName(item.name)
+    let entry = history.get(key)
+    if (!entry) {
+      entry = { key, name: item.name, category: item.category, count: 0, lastAt: 0 }
+      history.set(key, entry)
+    }
+    if (item.archivedAt !== null) {
+      entry.count += 1
+      entry.lastAt = Math.max(entry.lastAt, item.archivedAt)
+    }
+  }
+  return [...history.values()]
 }
 
-export function resolveItemFields(deps: Deps, input: AddItemInput) {
+function resolveItemFields(input: AddItemInput, categories: ReadonlyMap<string, string>) {
   const parsed = input.text ? parseItemText(input.text) : { name: '', qty: null, unit: null }
   const name = (input.name ?? parsed.name).trim()
   return {
@@ -173,7 +190,10 @@ export function resolveItemFields(deps: Deps, input: AddItemInput) {
     qty: input.qty !== undefined ? input.qty : parsed.qty,
     unit: input.unit !== undefined ? input.unit : parsed.unit,
     category:
-      input.category || historyCategory(deps, name) || guessCategory(name) || DEFAULT_CATEGORY,
+      input.category ||
+      categories.get(normalizeItemName(name)) ||
+      guessCategory(name) ||
+      DEFAULT_CATEGORY,
     note: input.note ?? null,
   }
 }
@@ -186,8 +206,14 @@ export function addItems(
 ): ShoppingItem[] {
   const list = editableList(deps, { kind: 'user', userId: user.id }, listId)
   const ts = deps.now()
+  const categories = new Map(
+    visibleHistory(deps, { kind: 'user', userId: user.id }).map((entry) => [
+      entry.key,
+      entry.category,
+    ]),
+  )
   const rows: ItemRow[] = inputs
-    .map((input) => resolveItemFields(deps, input))
+    .map((input) => resolveItemFields(input, categories))
     .filter((fields) => fields.name.length > 0)
     .map((fields, index) => ({
       id: newId(),
@@ -222,30 +248,6 @@ function editableItem(
   return { item, list }
 }
 
-function upsertHistory(
-  deps: Deps,
-  name: string,
-  category: string,
-  increment: number,
-  ts: number,
-): void {
-  const key = normalizeItemName(name)
-  deps.db
-    .insert(shoppingHistory)
-    .values({ key, name, category, count: increment, lastAt: ts, createdAt: ts, updatedAt: ts })
-    .onConflictDoUpdate({
-      target: shoppingHistory.key,
-      set: {
-        name,
-        category,
-        count: sql`${shoppingHistory.count} + ${increment}`,
-        lastAt: increment > 0 ? ts : sql`${shoppingHistory.lastAt}`,
-        updatedAt: ts,
-      },
-    })
-    .run()
-}
-
 export function updateItem(
   deps: Deps,
   user: UserRow,
@@ -266,10 +268,6 @@ export function updateItem(
     patch.checkedAt = input.checked ? ts : null
   }
   deps.db.update(shoppingItems).set(patch).where(eq(shoppingItems.id, itemId)).run()
-  if (input.category !== undefined && input.category !== item.category) {
-    // Remember the correction so the next time this item is added it lands in the right group.
-    upsertHistory(deps, patch.name ?? item.name, input.category, 0, ts)
-  }
   const updated = toItem({ ...item, ...patch })
   deps.hub.broadcast('shopping.item.updated', { listId: list.id, item: updated }, audienceFor(list))
   return updated
@@ -307,48 +305,35 @@ export function clearChecked(deps: Deps, user: UserRow, listId: string): number 
       )
       .run()
   })
-  for (const item of checked) upsertHistory(deps, item.name, item.category, 1, ts)
   deps.hub.broadcast('shopping.items.cleared', { listId }, audienceFor(list))
   return checked.length
 }
 
-export function suggest(deps: Deps, query: string): ShoppingSuggestion[] {
-  const q = normalizeItemName(query)
-  if (!q) return []
-  return deps.db
-    .select({
-      name: shoppingHistory.name,
-      category: shoppingHistory.category,
-      count: shoppingHistory.count,
-    })
-    .from(shoppingHistory)
-    .where(like(shoppingHistory.key, `%${q.replace(/[%_]/g, '')}%`))
-    .orderBy(
-      sql`case when ${shoppingHistory.key} like ${`${q}%`} then 0 else 1 end`,
-      desc(shoppingHistory.count),
-      desc(shoppingHistory.lastAt),
-    )
-    .limit(8)
-    .all()
+function toSuggestion({ name, category, count }: HistoryEntry): ShoppingSuggestion {
+  return { name, category, count }
 }
 
-export function frequent(deps: Deps): ShoppingSuggestion[] {
-  return deps.db
-    .select({
-      name: shoppingHistory.name,
-      category: shoppingHistory.category,
-      count: shoppingHistory.count,
-    })
-    .from(shoppingHistory)
-    .where(
-      and(
-        gt(shoppingHistory.lastAt, deps.now() - FREQUENT_WINDOW_MS),
-        gt(shoppingHistory.count, 0),
-      ),
+export function suggest(deps: Deps, viewer: Viewer, query: string): ShoppingSuggestion[] {
+  const q = normalizeItemName(query)
+  if (!q) return []
+  return visibleHistory(deps, viewer)
+    .filter((entry) => entry.key.includes(q))
+    .sort(
+      (a, b) =>
+        Number(b.key.startsWith(q)) - Number(a.key.startsWith(q)) ||
+        b.count - a.count ||
+        b.lastAt - a.lastAt,
     )
-    .orderBy(desc(shoppingHistory.count), desc(shoppingHistory.lastAt))
-    .limit(10)
-    .all()
+    .slice(0, 8)
+    .map(toSuggestion)
+}
+
+export function frequent(deps: Deps, viewer: Viewer): ShoppingSuggestion[] {
+  return visibleHistory(deps, viewer)
+    .filter((entry) => entry.lastAt > deps.now() - FREQUENT_WINDOW_MS && entry.count > 0)
+    .sort((a, b) => b.count - a.count || b.lastAt - a.lastAt)
+    .slice(0, 10)
+    .map(toSuggestion)
 }
 
 export function pendingItemsByList(

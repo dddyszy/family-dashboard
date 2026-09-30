@@ -84,7 +84,7 @@ export const authRoutes = new Hono<AppEnv>()
   .patch('/me', async (c) => {
     const user = requireUser(c)
     const input = await readJson(c, updateMeInput)
-    const updated = await updateMe(c.var.deps, user, input)
+    const updated = await updateMe(c.var.deps, user, input, getAuthCookie(c, SESSION_COOKIE))
     if (input.name !== undefined || input.color !== undefined || input.avatar !== undefined) {
       c.var.deps.hub.broadcast('members.changed', {}, { kind: 'family' })
     }

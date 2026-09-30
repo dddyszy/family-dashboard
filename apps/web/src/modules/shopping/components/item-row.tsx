@@ -104,7 +104,7 @@ export function ItemRow({
           <button
             type="button"
             onClick={onEdit}
-            className="rounded-full p-1.5 text-fg-subtle hover:bg-surface-hover hover:text-fg md:opacity-0 md:group-hover:opacity-100"
+            className="rounded-full p-1.5 text-fg-subtle hover:bg-surface-hover hover:text-fg focus-visible:opacity-100 md:group-hover:opacity-100 md:[@media(hover:hover)]:opacity-0"
             aria-label={`编辑${item.name}`}
           >
             <Pencil className="size-4" />
@@ -114,7 +114,7 @@ export function ItemRow({
           <button
             type="button"
             onClick={onDelete}
-            className="hidden rounded-full p-1.5 text-fg-subtle hover:bg-surface-hover hover:text-danger md:block md:opacity-0 md:group-hover:opacity-100"
+            className="hidden rounded-full p-1.5 text-fg-subtle hover:bg-surface-hover hover:text-danger md:block focus-visible:opacity-100 md:group-hover:opacity-100 md:[@media(hover:hover)]:opacity-0"
             aria-label={`删除${item.name}`}
           >
             <Trash2 className="size-4" />

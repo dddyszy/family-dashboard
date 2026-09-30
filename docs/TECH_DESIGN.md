@@ -1,6 +1,6 @@
 # 家庭大屏看板（Family Dashboard）技术设计
 
-> 对应应用版本：v0.2.0（第一期已实现）　更新日期：2026-09-30
+> 对应应用版本：v0.2.1（第一期及审查修复）　更新日期：2026-09-30
 >
 > 发布变更见 [更新日志](../CHANGELOG.md)，版本号以 Git 标签为准。
 >
@@ -254,7 +254,7 @@ modules/<name>/
 
 | 卡片 | 尺寸 | 说明 |
 | --- | --- | --- |
-| 时钟日期 | S / M | 时间、日期、星期、农历 |
+| 时钟日期 | S / M | 时间、日期、星期、农历；可选数字或指针表盘，数字表盘 M 尺寸附本周日期条 |
 | 天气 | S / M / L | 当前天气、今日温度区间，L 尺寸显示未来 5 天 |
 | 今日日程 | S / M / L | 今天的事件列表 |
 | 未来 7 天 | M / L | 按天分组的议程 |
@@ -326,13 +326,13 @@ modules/<name>/
 
 - 输入框回车即添加；支持一次粘贴多行批量添加
 - 支持输入「鸡蛋 2盒」自动拆出数量和单位
-- 根据 `shopping_history` 自动归类：之前买过的东西沿用上次的分类
+- 根据当前用户可见商品记录自动归类：之前买过或修正过分类的东西沿用最近的分类
 - 按分类分组显示；勾选后该项沉到分组底部并变灰；左滑删除（手机）或悬停显示删除按钮（电脑）
-- 「清除已购」：把已勾选的条目归档（设置 `archived_at`），同时累加到 `shopping_history`
+- 「清除已购」：把已勾选的条目归档（设置 `archived_at`），购买次数从可见清单的归档条目计算
 
 **常购联想**
 
-- 输入时按「名称前缀匹配 + 购买次数 + 最近购买时间」排序给出补全
+- 输入时按「名称前缀匹配 + 购买次数 + 最近购买时间」排序给出补全。联想、常买和分类记忆均从当前用户可见清单的商品与归档记录计算，清单转为私有或删除后重新按权限过滤；旧的全局 `shopping_history` 缺少归属信息，保留表以兼容旧数据库，但不再作为推荐来源
 - 清单顶部显示「常买」快捷标签（最近 30 天购买次数最多的 10 项），点一下即加入
 
 **实时协同**
@@ -383,6 +383,7 @@ registerWidget({
 - `configSchema`：卡片配置的 zod schema，用于校验与填充默认值；配置不合法时自动回退到默认配置
 - `ConfigEditor`（可选）：编辑配置的组件，例如选择显示哪个购物清单；没有该组件的卡片不显示设置按钮
 - `component`：接收 `{ size, config }`，自行通过 TanStack Query 读取数据
+- 卡片外框提供命名容器 `widget`；天气和时钟使用 `clamp()` 与 `cqw` 按卡片实际宽度调整字号、图标与内边距。手机保留最小字号，平板大卡片随可用空间放大，不以整屏宽度代替卡片宽度
 - `drawer`：点击卡片时打开的抽屉，不填则跳转到模块功能页
 
 每张卡片外层由统一的 `WidgetFrame` 包裹，负责玻璃背景、标题、加载骨架、错误兜底（单张卡片出错不影响整个首页）。
@@ -463,7 +464,7 @@ erDiagram
 | `todos` | id, owner_id, visibility, title, due_at, rrule, assignee_ids(JSON), remind_offsets(JSON), done_at | 待办 |
 | `shopping_lists` | id, owner_id, visibility, name, icon, color, sort | 购物清单 |
 | `shopping_items` | id, list_id, name, qty, unit, category, note, added_by, checked, checked_by, checked_at, archived_at | 购物条目 |
-| `shopping_history` | key(规范化名称，主键), name, category, count, last_at | 联想与自动归类 |
+| `shopping_history` | key(规范化名称，主键), name, category, count, last_at | 旧版全局历史，保留兼容；推荐已改为按可见商品记录计算 |
 | `dashboards` | id(固定为 `family`), layouts(JSON，按断点) | 全家共用的大屏布局，只有一行 |
 | `widgets` | id, dashboard_id, type, config(JSON) | 卡片实例 |
 | `reminders` | id, source_type(`event`/`todo`), source_id, occurrence_at, user_id, fire_at, status, fired_at, payload(JSON：标题、开始时间、地点、是否家庭可见) | 提醒；payload 是生成时的快照，弹窗无需再查源数据 |
@@ -823,6 +824,8 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 - 用户名 + 密码登录，密码使用 `Bun.password`（argon2id）哈希
 - 登录成功后生成随机令牌，数据库只存其 SHA-256 哈希；令牌写入 HttpOnly、`SameSite=Lax` 的 Cookie，`Secure` 属性按当前访问协议设置
 - 会话有效期 30 天，使用期间自动续期
+- 修改自己的密码后保留当前会话，撤销其他会话并关闭该用户的 SSE 连接；管理员重置密码时撤销目标用户的全部会话。密码校验或哈希完成后复查当前密码，避免并发重置后仍使用旧密码登录或改密
+- 修改管理员角色时，在异步密码哈希结束后重新检查管理员数量，始终至少保留一名管理员
 - 登录和注册分别限流：同一客户端每分钟各最多 10 次。客户端按 TCP 对端地址识别；只有对端地址在 `TRUSTED_PROXIES`（默认仅本机回环地址）中时，才读取 `X-Forwarded-For` 中最靠近服务端的非可信地址或 `X-Real-IP`。直连时客户端可以任意伪造这些头，信任它们会让攻击者绕过限流或把全家锁在外面
 
 **初始化**
@@ -867,11 +870,11 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 可选 HTTPS 入口的证书、反向代理、双协议会话及验收要求统一维护在 [HTTPS 配置指南](DEPLOY_HTTPS.md)。看板进程继续提供 HTTP，由外部代理终止 TLS。
 
 - 单个容器运行 Bun 服务、React 静态资源、SQLite 和定时任务，默认通过 `http://服务器内网IP:8686` 访问。
-- 默认 Compose 固定使用 `ghcr.io/dddyszy/family-dashboard:v0.2.0`，升级时修改镜像标签；工作流发布目标为 `linux/amd64` 和 `linux/arm64`。仅推送 `v*` Git 标签触发构建，并生成同名镜像标签；正式语义化版本更新 `latest`，预发布版本不更新。推送 `master` / `dev` 均不构建。发布规则见 [镜像自动构建](CI_IMAGE.md)。
+- 默认 Compose 固定使用 `ghcr.io/dddyszy/family-dashboard:v0.2.1`，升级时修改镜像标签；工作流发布目标为 `linux/amd64` 和 `linux/arm64`。仅推送 `v*` Git 标签触发构建，并生成同名镜像标签；正式语义化版本更新 `latest`，预发布版本不更新。推送 `master` / `dev` 均不构建。发布规则见 [镜像自动构建](CI_IMAGE.md)。
 - Compose 的 `environment` 直接填写配置，不依赖额外环境变量文件。生产环境要求 `APP_SECRET` 至少 32 个字符；IP 直连时 `PUBLIC_URL` 留空。经反向代理访问时，把代理连到看板时的来源地址填入 `TRUSTED_PROXIES`（逗号分隔的精确 IP），限流才能区分真实客户端；不填时所有经代理的请求共用一个限流桶。
 - `./data:/app/data` 保存数据库、上传文件及数据库快照；镜像以 root 运行以适配 NAS 本地目录权限。数据使用本地文件系统，不让多个运行实例共享同一数据库。
 - 镜像自带 `/api/health` 健康检查。修改环境变量、挂载、端口或镜像后需要用 `docker compose up -d` 重建，普通重启不应用这些配置变更。
-- 程序按启动时读取的家庭时区，每天 02:00 生成一致性数据库快照，保留最近 7 份。手动和迁移前快照同样计入保留数量，完整备份还需保存上传文件与 Compose 配置。
+- 程序按启动时读取的家庭时区，每天 02:00 生成一致性数据库快照，保留最近 7 份。同一秒连续备份使用递增文件名后缀，每次写入新快照；旧格式文件仍可下载。手动和迁移前快照同样计入保留数量，完整备份还需保存上传文件与 Compose 配置。
 - 首次启动自动迁移；已有数据库且存在待执行迁移时先备份数据库。升级前仍应完成外部备份并记录镜像版本，回退时恢复配套数据库。
 - 前端新增卡片使用 `crypto.getRandomValues()` 生成 UUIDv4，ID 同时用于卡片实例和布局项，支持普通 HTTP 访问。
 - 浏览器增强功能按 `window.isSecureContext` 与 API 可用性检测；设置页显示能力及离线准备状态，大屏与超市模式提示常亮不可用的原因，不影响基础业务功能。

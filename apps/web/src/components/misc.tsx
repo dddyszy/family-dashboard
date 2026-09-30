@@ -105,7 +105,7 @@ export function Section({
 }) {
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{title}</h2>
           {description ? <p className="mt-0.5 text-sm text-fg-muted">{description}</p> : null}

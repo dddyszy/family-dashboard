@@ -73,9 +73,9 @@ export const shoppingRoutes = new Hono<AppEnv>()
   .get('/shopping/suggest', (c) => {
     requireUser(c)
     const { q } = readQuery(c, z.object({ q: z.string().max(50).default('') }))
-    return c.json(suggest(c.var.deps, q))
+    return c.json(suggest(c.var.deps, requireViewer(c), q))
   })
   .get('/shopping/frequent', (c) => {
     requireUser(c)
-    return c.json(frequent(c.var.deps))
+    return c.json(frequent(c.var.deps, requireViewer(c)))
   })

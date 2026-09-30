@@ -1,6 +1,6 @@
 # 镜像自动构建（GitHub Actions）
 
-当前版本：**v0.2.0**，变更见 [更新日志](../CHANGELOG.md)。版本号以 Git 标签为准；镜像构建成功后才可拉取。
+当前版本：**v0.2.1**，变更见 [更新日志](../CHANGELOG.md)。版本号以 Git 标签为准；镜像构建成功后才可拉取。
 
 仓库中的 `.github/workflows/docker.yml` 会在 GitHub 的服务器上自动构建 Docker 镜像，并推送到镜像仓库。NAS 上只需要拉取现成的镜像，不需要源码和构建环境。
 
@@ -8,7 +8,7 @@
 
 | 触发方式 | 生成的镜像标签 |
 | --- | --- |
-| 推送正式版本标签，例如 `v0.2.0` | `v0.2.0`、`0.2.0`、`0.2`、`latest`、`sha-<提交号>` |
+| 推送正式版本标签，例如 `v0.2.1` | `v0.2.1`、`0.2.1`、`0.2`、`latest`、`sha-<提交号>` |
 | 推送预发布标签，例如 `v0.3.0-rc.1` | `v0.3.0-rc.1`、`0.3.0-rc.1`、`sha-<提交号>`；不更新 `latest` / `0.3` |
 | 推送其他 `v*` 标签，例如 `vtest` | `vtest`、`sha-<提交号>`；不更新 `latest` |
 | 推送到 `master` 或 `dev`、在 GitHub 手动发起新工作流 | 不构建；工作流只接受 `v*` 标签推送 |
@@ -31,7 +31,7 @@
 1. 打开 GitHub 个人主页 →「Packages」→ `family-dashboard`。
 2. 右侧「Package settings」→ 页面底部「Danger Zone」→「Change visibility」→ 选择「Public」并确认。
 
-之后任何人都可以直接 `docker pull ghcr.io/dddyszy/family-dashboard:v0.2.0`。
+之后任何人都可以直接 `docker pull ghcr.io/dddyszy/family-dashboard:v0.2.1`。
 
 ## 配置阿里云镜像（可选）
 
@@ -60,7 +60,7 @@
 确认上述镜像已成功发布后，在 `docker-compose.yml` 中修改 `services.app.image`（下方仅展示该字段，保留其余配置）：
 
 ```yaml
-    image: registry.cn-hangzhou.aliyuncs.com/dddyszy/family-dashboard:v0.2.0
+    image: registry.cn-hangzhou.aliyuncs.com/dddyszy/family-dashboard:v0.2.1
 ```
 
 ## 发布流程
@@ -74,19 +74,19 @@ git merge --no-ff dev
 git push origin master          # 只更新源码，不构建镜像
 
 # 2. 给当前稳定提交打一个尚未使用的版本标签
-git tag -a v0.2.0 -m "Release v0.2.0"
-git push origin v0.2.0          # 构建 v0.2.0、0.2.0、0.2、latest 和 sha-<提交号>
+git tag -a v0.2.1 -m "Release v0.2.1"
+git push origin v0.2.1          # 构建 v0.2.1、0.2.1、0.2、latest 和 sha-<提交号>
 ```
 
-以上展示本次 `v0.2.0` 的发布过程，标签已存在时不要重复创建或覆盖。后续修复可发布 `v0.2.1`，新增功能可发布 `v0.3.0`；发布时替换成实际新版本。首次采用此流程时，先确保新的工作流已经合入待打标签的提交；GitHub 使用标签所指提交中的工作流配置。打标签可以指向任意提交，工作流不会自动检查它是否属于 `master`；正式发布请按上述流程从稳定分支打标签。
+以上展示本次 `v0.2.1` 的发布过程，标签已存在时不要重复创建或覆盖。后续修复可发布 `v0.2.2`，新增功能可发布 `v0.3.0`；发布时替换成实际新版本。首次采用此流程时，先确保新的工作流已经合入待打标签的提交；GitHub 使用标签所指提交中的工作流配置。打标签可以指向任意提交，工作流不会自动检查它是否属于 `master`；正式发布请按上述流程从稳定分支打标签。
 
 发布成功后，可以在 Compose 中固定到与 Git 标签相同的版本：
 
 ```yaml
-    image: ghcr.io/dddyszy/family-dashboard:v0.2.0
+    image: ghcr.io/dddyszy/family-dashboard:v0.2.1
 ```
 
-构建时还会将 `v0.2.0-<短提交号>` 写入 `APP_VERSION`，用于前端缓存版本隔离。开发模式保留现有开发版本生成方式，无需手工修改各 workspace 的包版本。
+构建时还会将 `v0.2.1-<短提交号>` 写入 `APP_VERSION`，用于前端缓存版本隔离。开发模式保留现有开发版本生成方式，无需手工修改各 workspace 的包版本。
 
 如需测试预发布版，推送类似 `v0.3.0-rc.1` 的标签，并将 Compose 的 `image` 改成该标签；它不会影响使用 `latest` 的部署。
 

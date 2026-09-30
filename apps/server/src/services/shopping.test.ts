@@ -4,11 +4,13 @@ import {
   addItems,
   clearChecked,
   createList,
+  deleteList,
   frequent,
   listItems,
   listLists,
   suggest,
   updateItem,
+  updateList,
 } from './shopping'
 
 async function setup() {
@@ -93,8 +95,12 @@ describe('shopping lists', () => {
     expect(listItems(deps, { kind: 'user', userId: dad.id }, list.id).map((i) => i.name)).toEqual([
       '面包',
     ])
-    expect(frequent(deps)).toEqual([{ name: '牛奶', category: '乳品', count: 1 }])
-    expect(suggest(deps, '牛').map((s) => s.name)).toEqual(['牛奶'])
+    expect(frequent(deps, { kind: 'user', userId: dad.id })).toEqual([
+      { name: '牛奶', category: '乳品', count: 1 },
+    ])
+    expect(suggest(deps, { kind: 'user', userId: dad.id }, '牛').map((s) => s.name)).toEqual([
+      '牛奶',
+    ])
   })
 
   test('category corrections are remembered for the next add', async () => {
@@ -112,4 +118,37 @@ describe('shopping lists', () => {
     const [again] = addItems(deps, dad, list.id, [{ text: '猫粮' }])
     expect(again?.category).toBe('日用')
   })
+})
+
+test('suggestions, purchase counts and categories follow current list visibility', async () => {
+  const { deps, dad, mom } = await setup()
+  const owner = { kind: 'user' as const, userId: dad.id }
+  const other = { kind: 'user' as const, userId: mom.id }
+  const list = createList(deps, dad, {
+    name: '私有',
+    icon: 'cart',
+    color: '#30d158',
+    visibility: 'private',
+  })
+  const [item] = addItems(deps, dad, list.id, [{ name: '私有物品', category: '药品' }])
+  if (!item) throw new Error('item missing')
+  updateItem(deps, dad, item.id, { checked: true })
+  clearChecked(deps, dad, list.id)
+  expect(frequent(deps, owner)).toEqual([{ name: '私有物品', category: '药品', count: 1 }])
+  expect(frequent(deps, other)).toEqual([])
+  expect(suggest(deps, other, '私有')).toEqual([])
+  expect(suggest(deps, { kind: 'device' }, '私有')).toEqual([])
+  const publicList = createList(deps, mom, {
+    name: '共享',
+    icon: 'cart',
+    color: '#30d158',
+    visibility: 'family',
+  })
+  expect(addItems(deps, mom, publicList.id, [{ name: '私有物品' }])[0]?.category).toBe('其他')
+  updateList(deps, owner, list.id, { visibility: 'family' })
+  expect(frequent(deps, other)[0]?.count).toBe(1)
+  updateList(deps, owner, list.id, { visibility: 'private' })
+  expect(frequent(deps, other)).toEqual([])
+  deleteList(deps, owner, list.id)
+  expect(frequent(deps, owner)).toEqual([])
 })
