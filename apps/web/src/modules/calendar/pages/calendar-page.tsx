@@ -92,33 +92,47 @@ export function CalendarPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <h1 className="mr-auto text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
-        <Segmented
-          value={view}
-          onChange={setView}
-          options={[
-            { value: 'month', label: '月' },
-            { value: 'week', label: '周' },
-            { value: 'day', label: '日' },
-            { value: 'agenda', label: '列表' },
-          ]}
-        />
-        <div className="flex items-center gap-1">
-          <Button size="icon" variant="ghost" onClick={() => move(-1)} aria-label="上一页">
-            <ChevronLeft className="size-5" />
-          </Button>
-          <Button size="sm" onClick={() => setCursor(startOfZonedDay(Date.now(), timeZone))}>
-            今天
-          </Button>
-          <Button size="icon" variant="ghost" onClick={() => move(1)} aria-label="下一页">
-            <ChevronRight className="size-5" />
-          </Button>
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="flex min-w-0 items-center gap-2 md:mr-auto">
+          <h1 className="min-w-0 flex-1 truncate text-2xl font-bold tracking-tight md:text-3xl">
+            {title}
+          </h1>
+          <div className="md:hidden">
+            <Button variant="primary" size="icon" onClick={newEvent} aria-label="新建日程">
+              <Plus className="size-5" />
+            </Button>
+          </div>
         </div>
-        <Button variant="primary" onClick={newEvent}>
-          <Plus className="size-4" />
-          新建
-        </Button>
+        <div className="flex items-center gap-2">
+          <Segmented
+            value={view}
+            onChange={setView}
+            className="flex-1 md:flex-none [&>button]:flex-1"
+            options={[
+              { value: 'month', label: '月' },
+              { value: 'week', label: '周' },
+              { value: 'day', label: '日' },
+              { value: 'agenda', label: '列表' },
+            ]}
+          />
+          <div className="flex shrink-0 items-center gap-1">
+            <Button size="icon" variant="ghost" onClick={() => move(-1)} aria-label="上一页">
+              <ChevronLeft className="size-5" />
+            </Button>
+            <Button size="sm" onClick={() => setCursor(startOfZonedDay(Date.now(), timeZone))}>
+              今天
+            </Button>
+            <Button size="icon" variant="ghost" onClick={() => move(1)} aria-label="下一页">
+              <ChevronRight className="size-5" />
+            </Button>
+          </div>
+          <div className="hidden md:block">
+            <Button variant="primary" onClick={newEvent}>
+              <Plus className="size-4" />
+              新建
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_320px]">

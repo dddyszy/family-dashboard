@@ -198,7 +198,10 @@ function NextWidget() {
       <WidgetHeader icon={Hourglass} title="下一项" />
       {next ? (
         <div className="min-w-0">
-          <p className="text-xl font-semibold" style={{ color: eventColor(next, members) }}>
+          <p
+            className="truncate text-xl font-semibold whitespace-nowrap tabular-nums"
+            style={{ color: eventColor(next, members) }}
+          >
             {formatCountdown(next.startAt - now)}
           </p>
           <p className="truncate font-medium">{next.title}</p>

@@ -63,10 +63,10 @@ export function formatEventTime(
 export function formatCountdown(ms: number): string {
   if (ms <= 0) return '进行中'
   const minutes = Math.ceil(ms / 60_000)
-  if (minutes < 60) return `${minutes} 分钟后`
+  if (minutes < 60) return `${minutes}分钟后`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} 小时 ${minutes % 60} 分钟后`
-  return `${Math.floor(hours / 24)} 天后`
+  if (hours < 24) return minutes % 60 === 0 ? `${hours}小时后` : `${hours}小时${minutes % 60}分后`
+  return `${Math.floor(hours / 24)}天后`
 }
 
 export function toDateInput(ms: number, timeZone: string): string {

@@ -105,7 +105,7 @@ export function Segmented<T extends string>({
           aria-selected={option.value === value}
           onClick={() => onChange(option.value)}
           className={cn(
-            'rounded-[calc(var(--radius-control)-4px)] px-3 py-1.5 text-sm font-medium transition',
+            'rounded-[calc(var(--radius-control)-4px)] px-3 py-1.5 text-sm font-medium whitespace-nowrap transition',
             option.value === value
               ? 'bg-surface-strong text-fg shadow-sm'
               : 'text-fg-muted hover:text-fg',
