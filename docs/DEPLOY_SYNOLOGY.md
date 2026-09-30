@@ -19,14 +19,18 @@ HTTPS 是必需的：PWA 安装、离线缓存和大屏的屏幕常亮都只在 
 3. 把本仓库放进这个文件夹（任选一种）：
    - 在 NAS 上通过 SSH 执行 `git clone https://github.com/dddyszy/family-dashboard.git /volume1/docker/family-dashboard`
    - 或者在电脑上下载仓库压缩包，解压后上传到该文件夹
-4. 在该文件夹中新建 `.env` 文件，内容如下：
+4. 把项目中的 `.env.example` 复制一份并改名为 `.env`，按注释填写：
 
    ```bash
    # 至少 32 位的随机字符串。可以在任意电脑上执行 openssl rand -hex 32 生成
    APP_SECRET=请替换为随机字符串
    # 第 3 步配置好的访问地址
    PUBLIC_URL=https://dash.你的名字.synology.me
+   # 国内网络构建镜像慢时打开
+   NPM_REGISTRY=https://registry.npmmirror.com
    ```
+
+   国内网络下，还建议在 Container Manager 的「注册表」→「设置」中配置 Docker 镜像加速，否则拉取 `oven/bun` 基础镜像可能失败。
 
 ## 第 2 步：启动容器
 

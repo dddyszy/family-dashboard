@@ -204,6 +204,8 @@ family-dashboard/
   docs/
     TECH_DESIGN.md
     DEPLOY_SYNOLOGY.md            # 群晖部署指南
+    DEPLOY_FNOS.md                # 飞牛 fnOS 部署指南
+    images/                       # README 截图
   AGENTS.md
   biome.json
   .editorconfig
@@ -347,7 +349,7 @@ modules/<name>/
 - **外观**：主题、壁纸、性能模式、深色模式自动切换时段
 - **家庭设置**（管理员）：家庭时区、天气城市（经纬度）
 - **大屏设备**（管理员）：生成配对码、查看在线状态、吊销设备
-- **数据**（管理员）：立即备份、下载备份、导出 JSON
+- **数据**（管理员）：立即备份、下载备份、导出 JSON；重置数据（清空数据或恢复出厂，需输入「重置」并再次输入管理员密码，执行前自动备份）
 
 ---
 
@@ -390,7 +392,8 @@ registerWidget({
 | `md` | 768 – 1199px | 8 | 竖屏平板 |
 | `sm` | < 768px | 4 | 手机 |
 
-- 行高根据容器宽度动态计算，保证格子为正方形
+- 行高根据容器宽度动态计算，保证格子为正方形；手机（`sm`）上行高最少 80px，避免中号卡片过矮
+- 列表类卡片（今日日程、近期日程、待办、购物待买等）按卡片实际高度显示尽可能多的完整条目，放不下的整条隐藏，不会出现被截断的半行
 - 布局按断点分别保存；某个断点没有布局时，从较大断点自动推导
 
 ### 6.3 数据加载
@@ -563,6 +566,7 @@ stateDiagram-v2
 | GET / POST | `/backups` | 备份列表 / 立即备份（管理员） |
 | GET | `/backups/:name` | 下载备份文件（管理员） |
 | GET | `/export` | 导出全部数据为 JSON，不含密码哈希和令牌（管理员） |
+| POST | `/admin/reset` | 重置数据（管理员）。请求体 `{ mode, password, confirm }`：`mode` 为 `content`（清空日程、待办、提醒、购物清单和首页布局，保留账号、设置和大屏设备）或 `factory`（删除全部数据并回到初始化页面）；需要管理员密码，`confirm` 必须为「重置」。执行前自动备份，每分钟最多 5 次 |
 | GET | `/health` | 健康检查，供 Docker 使用 |
 
 ---
@@ -588,6 +592,7 @@ data: {"listId":"...","item":{...}}
   - `todo.changed`
   - `dashboard.changed`（大屏布局被修改时，所有在线页面和大屏自动刷新布局）
   - `reminder.fired`
+  - `data.reset`（管理员重置数据后发出：清空数据时各页面重新拉取，恢复出厂时各页面清空本地缓存并回到初始化或配对页）
 - 稳定性：
   - 每 20 秒发送一次心跳注释行（`: ping`），防止反向代理和 Bun 的空闲超时断开连接
   - `Bun.serve` 的 `idleTimeout` 默认只有 10 秒，需要调大到 120 秒
@@ -887,6 +892,9 @@ data/
 | `TZ` | 否 | 容器时区，默认 `Asia/Shanghai` |
 | `PORT` | 否 | 监听端口，默认 8686 |
 | `DATA_DIR` | 否 | 数据目录，默认 `/app/data` |
+| `NPM_REGISTRY` | 否 | 仅构建镜像时使用的 npm 镜像源，国内网络可设为 `https://registry.npmmirror.com` |
+
+变量模板见仓库根目录的 `.env.example`。
 
 天气位置等运行期可调的配置放在设置页中，存入 `settings` 表，而不是环境变量。
 
@@ -902,7 +910,7 @@ data/
 
 ### 13.2 HTTPS：群晖反向代理
 
-完整步骤见 [`docs/DEPLOY_SYNOLOGY.md`](DEPLOY_SYNOLOGY.md)，要点如下。
+完整步骤见 [`docs/DEPLOY_SYNOLOGY.md`](DEPLOY_SYNOLOGY.md)；飞牛 fnOS 及其他没有自带反向代理的 NAS 见 [`docs/DEPLOY_FNOS.md`](DEPLOY_FNOS.md)（使用 Nginx Proxy Manager）。群晖的要点如下。
 
 **第 1 步：域名**
 
