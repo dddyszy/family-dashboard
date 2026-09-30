@@ -1,9 +1,10 @@
 import {
   DEFAULT_HOUSEHOLD_SETTINGS,
   type HouseholdSettings,
-  householdSettingsSchema,
   isValidTimeZone,
+  mergeSettings,
   type UpdateSettingsInput,
+  updateSettingsInput,
 } from '@shared/schemas/settings'
 import { eq } from 'drizzle-orm'
 import type { Db } from '../db/client'
@@ -19,8 +20,11 @@ export function getHousehold({ db }: Pick<Deps, 'db'>): HouseholdSettings {
   const cached = cache.get(db)
   if (cached) return cached
   const row = db.select().from(settings).where(eq(settings.key, HOUSEHOLD_KEY)).get()
-  const parsed = householdSettingsSchema.safeParse(row?.value ?? {})
-  const value = parsed.success ? parsed.data : DEFAULT_HOUSEHOLD_SETTINGS
+  // Stored settings are applied as a patch so fields added in later versions get their defaults.
+  const parsed = updateSettingsInput.safeParse(row?.value ?? {})
+  const value = parsed.success
+    ? mergeSettings(DEFAULT_HOUSEHOLD_SETTINGS, parsed.data)
+    : DEFAULT_HOUSEHOLD_SETTINGS
   cache.set(db, value)
   return value
 }
@@ -35,7 +39,7 @@ export function getTimeZone(deps: Pick<Deps, 'db'>): string {
 
 export function updateHousehold(deps: Deps, input: UpdateSettingsInput): HouseholdSettings {
   if (input.timezone && !isValidTimeZone(input.timezone)) throw badRequest('时区无效')
-  const next = householdSettingsSchema.parse({ ...getHousehold(deps), ...input })
+  const next = mergeSettings(getHousehold(deps), input)
   const ts = deps.now()
   deps.db
     .insert(settings)
