@@ -1,3 +1,4 @@
+import type { ResetInput, ResetResult } from '@shared/schemas/admin'
 import type { HouseholdSettings, UpdateSettingsInput } from '@shared/schemas/settings'
 import type { CreateUserInput, PublicUser, UpdateUserInput } from '@shared/schemas/users'
 import { api } from '@/lib/api'
@@ -28,6 +29,7 @@ export const settingsApi = {
     form.append('file', file)
     return api.post<{ url: string }>('/uploads', form)
   },
+  reset: (input: ResetInput) => api.post<ResetResult>('/admin/reset', input),
   backups: () => api.get<BackupFile[]>('/backups'),
   backupNow: () => api.post<BackupFile>('/backups'),
 }

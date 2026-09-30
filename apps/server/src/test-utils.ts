@@ -37,7 +37,7 @@ export async function seedUser(
 
 /** Minimal cookie-aware client around `app.request`, one per simulated browser. */
 export function createClient(deps: Deps) {
-  const app = createApp(deps)
+  const app = createApp(deps, { reset: { backupDir: null, uploadsDir: null } })
   const cookies = new Map<string, string>()
   async function request(method: string, path: string, body?: unknown) {
     const headers: Record<string, string> = {}

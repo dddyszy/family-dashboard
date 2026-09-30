@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, statSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { getZonedParts } from '@shared/time'
 import { sql } from 'drizzle-orm'
@@ -35,7 +35,8 @@ export function runBackup(deps: Deps, dir = env.backupsDir): BackupFile {
   mkdirSync(dir, { recursive: true })
   const name = backupName(deps.now(), getTimeZone(deps))
   const path = join(dir, name)
-  deps.db.run(sql.raw(`VACUUM INTO '${path.replaceAll("'", "''")}'`))
+  // VACUUM INTO refuses to overwrite; a backup taken in the same second is already current.
+  if (!existsSync(path)) deps.db.run(sql.raw(`VACUUM INTO '${path.replaceAll("'", "''")}'`))
   for (const old of listBackups(dir).slice(KEEP)) unlinkSync(join(dir, old.name))
   const stat = statSync(path)
   return { name, size: stat.size, createdAt: stat.mtimeMs }

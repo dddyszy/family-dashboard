@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import { connectRealtime, onReconnect, useRealtime } from '@/lib/realtime'
+import { clearClientCaches } from '@/lib/query-client'
+import { connectRealtime, disconnectRealtime, onReconnect, useRealtime } from '@/lib/realtime'
 import { useCalendarRealtime } from '@/modules/calendar'
 import { settingsKeys } from '@/modules/settings/queries'
 import { useShoppingRealtime } from '@/modules/shopping'
@@ -23,6 +24,15 @@ export function RealtimeBridge() {
     () => void qc.invalidateQueries({ queryKey: settingsKeys.household }),
   )
   useRealtime('dashboard.changed', () => void qc.invalidateQueries({ queryKey: ['dashboard'] }))
+  useRealtime('data.reset', ({ mode }) => {
+    if (mode === 'content') {
+      void qc.invalidateQueries()
+      return
+    }
+    // Every account and device is gone: drop cached data and let the app route to setup/pairing.
+    disconnectRealtime()
+    void clearClientCaches().then(() => window.location.reload())
+  })
   useShoppingRealtime()
   useCalendarRealtime()
   return null

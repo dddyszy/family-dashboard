@@ -1,3 +1,4 @@
+import type { ResetMode } from './schemas/admin'
 import type { Reminder } from './schemas/reminders'
 import type { ShoppingItem } from './schemas/shopping'
 
@@ -13,6 +14,7 @@ export type RealtimeEvents = {
   'members.changed': Record<string, never>
   'settings.changed': Record<string, never>
   'reminder.fired': { reminder: Reminder }
+  'data.reset': { mode: ResetMode }
 }
 
 export type RealtimeEventName = keyof RealtimeEvents
@@ -29,4 +31,5 @@ export const REALTIME_EVENT_NAMES: RealtimeEventName[] = [
   'members.changed',
   'settings.changed',
   'reminder.fired',
+  'data.reset',
 ]

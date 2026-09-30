@@ -9,6 +9,7 @@ import { DevicesSection } from '../components/devices-section'
 import { HouseholdSection } from '../components/household-section'
 import { MembersSection } from '../components/members-section'
 import { ProfileSection } from '../components/profile-section'
+import { ResetSection } from '../components/reset-section'
 
 type Tab = 'profile' | 'appearance' | 'family' | 'kiosk' | 'data'
 
@@ -53,7 +54,12 @@ export function SettingsPage() {
         </div>
       ) : null}
       {tab === 'kiosk' && isAdmin ? <DevicesSection /> : null}
-      {tab === 'data' && isAdmin ? <DataSection /> : null}
+      {tab === 'data' && isAdmin ? (
+        <div className="flex flex-col gap-5">
+          <DataSection />
+          <ResetSection />
+        </div>
+      ) : null}
     </div>
   )
 }

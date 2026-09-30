@@ -25,6 +25,10 @@ export function getHousehold({ db }: Pick<Deps, 'db'>): HouseholdSettings {
   return value
 }
 
+export function clearHouseholdCache(db: Db): void {
+  cache.delete(db)
+}
+
 export function getTimeZone(deps: Pick<Deps, 'db'>): string {
   return getHousehold(deps).timezone
 }

@@ -8,6 +8,7 @@ import './home/contributors'
 import { authenticate, originGuard } from './lib/auth'
 import type { AppEnv, Deps } from './lib/context'
 import { AppError } from './lib/errors'
+import { createAdminRoutes } from './routes/admin'
 import { authRoutes } from './routes/auth'
 import { backupRoutes } from './routes/backup'
 import { calendarRoutes } from './routes/calendar'
@@ -18,8 +19,9 @@ import { shoppingRoutes } from './routes/shopping'
 import { streamRoutes } from './routes/stream'
 import { uploadRoutes } from './routes/uploads'
 import { userRoutes } from './routes/users'
+import type { ResetOptions } from './services/reset'
 
-export type AppOptions = { serveWeb?: boolean }
+export type AppOptions = { serveWeb?: boolean; reset?: ResetOptions }
 
 export function createApp(deps: Deps, options: AppOptions = {}) {
   const api = new Hono<AppEnv>()
@@ -40,6 +42,7 @@ export function createApp(deps: Deps, options: AppOptions = {}) {
     .route('/', shoppingRoutes)
     .route('/', calendarRoutes)
     .route('/', backupRoutes)
+    .route('/', createAdminRoutes(options.reset))
 
   api.onError((error, c) => {
     if (error instanceof AppError) {
