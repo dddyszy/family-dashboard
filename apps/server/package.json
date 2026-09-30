@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "NODE_ENV=production bun src/index.ts",
+    "preview": "NODE_ENV=production APP_SECRET=local-preview-only-secret-never-deploy-this bun src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun src/db/migrate-cli.ts"
   },

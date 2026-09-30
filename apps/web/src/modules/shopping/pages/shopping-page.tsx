@@ -1,8 +1,8 @@
 import type { ShoppingList } from '@shared/schemas/shopping'
 import { ChevronLeft, Lock, Pencil, Plus, ShoppingCart, Store } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
-import { Button } from '@/components/button'
+import { Link, useLocation, useParams } from 'wouter'
+import { Button, Spinner } from '@/components/button'
 import { Glass } from '@/components/glass'
 import { EmptyState, PageHeader } from '@/components/misc'
 import { cn } from '@/lib/cn'
@@ -14,8 +14,8 @@ import { SupermarketMode } from '../components/supermarket-mode'
 import { useLists } from '../queries'
 
 export function ShoppingPage() {
-  const { listId } = useParams()
-  const navigate = useNavigate()
+  const { listId } = useParams<{ listId?: string }>()
+  const [, navigate] = useLocation()
   const user = useCurrentUser()
   const { data: lists = [], isPending } = useLists()
   const [editor, setEditor] = useState<{ list?: ShoppingList } | null>(null)
@@ -59,7 +59,15 @@ export function ShoppingPage() {
     </div>
   )
 
-  if (!isPending && lists.length === 0) {
+  if (isPending && lists.length === 0) {
+    return (
+      <div className="flex justify-center py-20">
+        <Spinner className="size-6 text-fg-subtle" />
+      </div>
+    )
+  }
+
+  if (lists.length === 0) {
     return (
       <div className="mx-auto max-w-3xl">
         <PageHeader title="购物清单" />

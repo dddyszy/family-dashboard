@@ -2,11 +2,12 @@ import type { EventInstance } from '@shared/schemas/calendar'
 import { addZonedDays, getZonedParts, HOUR_MS, startOfZonedDay } from '@shared/time'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Button } from '@/components/button'
+import { Button, Spinner } from '@/components/button'
 import { Segmented } from '@/components/form'
 import { Glass } from '@/components/glass'
 import { Avatar } from '@/components/misc'
 import { cn } from '@/lib/cn'
+import { formatMonthDay } from '@/lib/time'
 import { useNow } from '@/lib/use-now'
 import { useMembers, useTimeZone } from '@/modules/settings/queries'
 import { AgendaView } from '../components/agenda-view'
@@ -74,7 +75,7 @@ export function CalendarPage() {
     view === 'month' || view === 'agenda'
       ? `${p.year}年${p.month}月`
       : view === 'week'
-        ? `${p.year}年${p.month}月 第 ${Math.ceil(getZonedParts(range.from, timeZone).day / 7)} 周`
+        ? `${formatMonthDay(range.from, timeZone)} – ${formatMonthDay(addZonedDays(range.to, -1, timeZone), timeZone)}`
         : `${p.month}月${p.day}日`
 
   const openEvent = (instance: EventInstance) => openEditor({ kind: 'edit', instance })
@@ -153,7 +154,11 @@ export function CalendarPage() {
             </div>
           ) : null}
           <Glass className="p-3 md:p-4">
-            {view === 'month' ? (
+            {!events.data ? (
+              <div className="flex justify-center py-16">
+                <Spinner className="size-6 text-fg-subtle" />
+              </div>
+            ) : view === 'month' ? (
               <MonthView
                 gridStart={range.gridStart}
                 monthStart={range.monthStart}

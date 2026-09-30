@@ -1,26 +1,19 @@
-import { sizeOf } from '@shared/layout'
+import { compactLayout, sizeOf } from '@shared/layout'
 import {
   BREAKPOINT_COLS,
-  BREAKPOINT_WIDTHS,
-  BREAKPOINTS,
-  type BreakpointName,
-  type LayoutItem,
   type Layouts,
   type WidgetInstance,
   type WidgetSize,
 } from '@shared/schemas/dashboard'
-import { useMemo, useState } from 'react'
-import {
-  getBreakpointFromWidth,
-  type Layout,
-  ResponsiveGridLayout,
-  type ResponsiveLayouts,
-  useContainerWidth,
-} from 'react-grid-layout'
+import { lazy, Suspense, useMemo } from 'react'
+import { Spinner } from '@/components/button'
 import { getWidget } from '@/widgets/registry'
 import { WidgetFrame } from '@/widgets/widget-frame'
+import { breakpointFor, GRID_MARGIN, rowHeightFor, useElementWidth } from './grid-shared'
 
-const MARGIN = 16
+const EditableGrid = lazy(() =>
+  import('./editable-grid').then((m) => ({ default: m.EditableGrid })),
+)
 
 type Props = {
   layouts: Layouts
@@ -33,78 +26,100 @@ type Props = {
   onConfigure?: (id: string) => void
 }
 
-function toItems(layout: Layout | undefined): LayoutItem[] {
-  return (layout ?? []).map(({ i, x, y, w, h }) => ({ i, x, y, w, h }))
+/**
+ * Viewing uses a plain CSS grid so the drag-and-drop library is never downloaded unless someone
+ * edits the layout. Both render identical geometry.
+ */
+export function DashboardGrid(props: Props) {
+  const { ref, width } = useElementWidth<HTMLDivElement>()
+  return (
+    <div ref={ref} className="min-h-40">
+      {width === 0 ? null : props.editMode ? (
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-16">
+              <Spinner className="text-fg-subtle" />
+            </div>
+          }
+        >
+          <EditableGrid
+            width={width}
+            layouts={props.layouts}
+            widgets={props.widgets}
+            onLayoutsChange={props.onLayoutsChange ?? (() => {})}
+            onRemove={props.onRemove ?? (() => {})}
+            onResize={props.onResize ?? (() => {})}
+            onConfigure={props.onConfigure ?? (() => {})}
+          />
+        </Suspense>
+      ) : (
+        <StaticGrid
+          width={width}
+          layouts={props.layouts}
+          widgets={props.widgets}
+          readOnly={props.readOnly}
+        />
+      )}
+    </div>
+  )
 }
 
-export function DashboardGrid({
+function StaticGrid({
+  width,
   layouts,
   widgets,
-  editMode,
   readOnly,
-  onLayoutsChange,
-  onRemove,
-  onResize,
-  onConfigure,
-}: Props) {
-  const { width, containerRef, mounted } = useContainerWidth({ initialWidth: 1024 })
-  const [breakpoint, setBreakpoint] = useState<BreakpointName>(
-    () => getBreakpointFromWidth(BREAKPOINT_WIDTHS, width) as BreakpointName,
-  )
+}: {
+  width: number
+  layouts: Layouts
+  widgets: WidgetInstance[]
+  readOnly?: boolean
+}) {
+  const breakpoint = breakpointFor(width)
   const cols = BREAKPOINT_COLS[breakpoint]
-  const rowHeight = Math.max(60, (width - MARGIN * (cols - 1)) / cols)
-
-  const itemsById = useMemo(() => {
-    const current = layouts[breakpoint]
-    return new Map(current.map((item) => [item.i, item]))
-  }, [layouts, breakpoint])
-
-  const handleLayoutChange = (_layout: Layout, all: ResponsiveLayouts<BreakpointName>) => {
-    if (!editMode || !onLayoutsChange) return
-    const next: Layouts = { ...layouts }
-    for (const bp of BREAKPOINTS) {
-      if (all[bp]) next[bp] = toItems(all[bp])
-    }
-    onLayoutsChange(next)
-  }
+  const items = useMemo(
+    () =>
+      compactLayout(
+        layouts[breakpoint],
+        cols,
+        widgets.map((w) => w.id),
+      ),
+    [layouts, breakpoint, cols, widgets],
+  )
+  const byId = new Map(widgets.map((w) => [w.id, w]))
 
   return (
-    <div ref={containerRef} className="min-h-40">
-      {mounted ? (
-        <ResponsiveGridLayout<BreakpointName>
-          width={width}
-          breakpoints={BREAKPOINT_WIDTHS}
-          cols={BREAKPOINT_COLS}
-          layouts={layouts}
-          rowHeight={rowHeight}
-          margin={[MARGIN, MARGIN]}
-          containerPadding={[0, 0]}
-          dragConfig={{ enabled: editMode, threshold: 6, cancel: '.no-drag' }}
-          resizeConfig={{ enabled: false }}
-          onBreakpointChange={(bp) => setBreakpoint(bp)}
-          onLayoutChange={handleLayoutChange}
-        >
-          {widgets.map((w) => {
-            const item = itemsById.get(w.id)
-            const size = item ? sizeOf(item) : 'S'
-            return (
-              <div key={w.id}>
-                <WidgetFrame
-                  definition={getWidget(w.type)}
-                  instanceId={w.id}
-                  config={w.config}
-                  size={size}
-                  editMode={editMode}
-                  readOnly={readOnly}
-                  onRemove={() => onRemove?.(w.id)}
-                  onResize={(s) => onResize?.(w.id, s)}
-                  onConfigure={() => onConfigure?.(w.id)}
-                />
-              </div>
-            )
-          })}
-        </ResponsiveGridLayout>
-      ) : null}
+    <div
+      className="grid"
+      style={{
+        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+        gridAutoRows: `${rowHeightFor(width, breakpoint)}px`,
+        gap: GRID_MARGIN,
+      }}
+    >
+      {items.map((item) => {
+        const widget = byId.get(item.i)
+        if (!widget) return null
+        return (
+          <div
+            key={item.i}
+            className="animate-fade-in"
+            style={{
+              gridColumn: `${item.x + 1} / span ${item.w}`,
+              gridRow: `${item.y + 1} / span ${item.h}`,
+            }}
+          >
+            <WidgetFrame
+              definition={getWidget(widget.type)}
+              instanceId={widget.id}
+              config={widget.config}
+              size={sizeOf(item)}
+              editMode={false}
+              readOnly={readOnly}
+            />
+          </div>
+        )
+      })}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { ShoppingCart } from 'lucide-react'
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'wouter'
 import { Select } from '@/components/form'
 import { EmptyState } from '@/components/misc'
 import { useUi } from '@/stores/ui'

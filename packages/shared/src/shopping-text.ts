@@ -36,6 +36,14 @@ const UNITS = [
   '件',
   '双',
   '套',
+  '杯',
+  '听',
+  '粒',
+  '头',
+  '棵',
+  '串',
+  '捆',
+  '盘',
 ]
 
 const unitPattern = UNITS.slice()

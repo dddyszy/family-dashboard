@@ -1,20 +1,27 @@
-import { mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import { createApp } from './app'
 import { openDatabase, runMigrations } from './db/client'
+import { pendingMigrationCount } from './db/pending'
 import { env } from './env'
 import { startJobs } from './jobs/scheduler'
 import type { Deps } from './lib/context'
 import { RealtimeHub } from './realtime/hub'
+import { runBackup } from './services/backup'
 
 mkdirSync(env.uploadsDir, { recursive: true })
 mkdirSync(env.backupsDir, { recursive: true })
 
-const { db } = openDatabase(env.dbPath)
+const isExistingDb = existsSync(env.dbPath)
+const { db, sqlite } = openDatabase(env.dbPath)
+const deps: Deps = { db, hub: new RealtimeHub(), now: () => Date.now() }
+
+if (isExistingDb && pendingMigrationCount(sqlite) > 0) {
+  const backup = runBackup(deps)
+  console.log(`升级前已备份数据库：${backup.name}`)
+}
 runMigrations(db)
 
-const deps: Deps = { db, hub: new RealtimeHub(), now: () => Date.now() }
 const app = createApp(deps, { serveWeb: env.isProd })
-
 startJobs(deps)
 
 const server = Bun.serve({

@@ -25,6 +25,11 @@ describe('parseItemText', () => {
     expect(parseItemText('iPhone15')).toEqual({ name: 'iPhone15', qty: null, unit: null })
   })
 
+  test('drink and produce units', () => {
+    expect(parseItemText('酸奶 4杯')).toEqual({ name: '酸奶', qty: 4, unit: '杯' })
+    expect(parseItemText('大蒜 2头')).toEqual({ name: '大蒜', qty: 2, unit: '头' })
+  })
+
   test('space-separated count without unit', () => {
     expect(parseItemText('可乐 6')).toEqual({ name: '可乐', qty: 6, unit: null })
   })

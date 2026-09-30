@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation } from 'wouter'
 import { Button } from '@/components/button'
 import { Field, Input } from '@/components/form'
 import { errorMessage } from '@/lib/api'
@@ -7,7 +7,7 @@ import { useSetup } from '../queries'
 import { AuthLayout } from './auth-layout'
 
 export function SetupPage() {
-  const navigate = useNavigate()
+  const [, navigate] = useLocation()
   const setup = useSetup()
   const [form, setForm] = useState({ name: '', username: '', password: '', confirm: '' })
   const [localError, setLocalError] = useState('')

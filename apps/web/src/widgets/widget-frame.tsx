@@ -1,7 +1,7 @@
 import type { WidgetSize } from '@shared/schemas/dashboard'
 import { CircleAlert, Minus, SlidersHorizontal } from 'lucide-react'
 import { Suspense } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation } from 'wouter'
 import { Spinner } from '@/components/button'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { Glass } from '@/components/glass'
@@ -34,7 +34,7 @@ export function WidgetFrame({
   onConfigure,
 }: Props) {
   const openDrawer = useUi((s) => s.openDrawer)
-  const navigate = useNavigate()
+  const [, navigate] = useLocation()
 
   const activate = () => {
     if (editMode || !definition) return

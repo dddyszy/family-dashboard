@@ -48,15 +48,16 @@ export function createApp(deps: Deps, options: AppOptions = {}) {
     console.error(error)
     return c.json({ error: { code: 'INTERNAL', message: '服务器内部错误' } }, 500)
   })
-  api.notFound((c) => c.json({ error: { code: 'NOT_FOUND', message: '接口不存在' } }, 404))
-
   const app = new Hono<AppEnv>()
-  app.use('/api/*', async (c, next) => {
+  const gzip = compress()
+  app.use('*', async (c, next) => {
     // SSE must not be compressed or buffered.
     if (c.req.path === '/api/stream') return next()
-    return compress()(c, next)
+    return gzip(c, next)
   })
   app.route('/api', api)
+  // Sub-app notFound handlers are ignored once mounted, so API 404s are handled here.
+  app.all('/api/*', (c) => c.json({ error: { code: 'NOT_FOUND', message: '接口不存在' } }, 404))
   app.use('/uploads/*', async (c, next) => {
     c.header('Cache-Control', 'public, max-age=604800')
     await next()
@@ -88,5 +89,6 @@ function mountWeb(app: Hono<AppEnv>): void {
     }
   })
   app.use('*', serveStatic({ root }))
-  app.get('*', serveStatic({ path: join(root, 'index.html') }))
+  // SPA fallback: `path` is resolved against `root`, so it must be relative.
+  app.get('*', serveStatic({ root, path: 'index.html' }))
 }

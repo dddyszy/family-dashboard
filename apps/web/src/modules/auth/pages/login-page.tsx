@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation } from 'wouter'
 import { Button } from '@/components/button'
 import { Field, Input } from '@/components/form'
 import { errorMessage } from '@/lib/api'
@@ -7,7 +7,7 @@ import { useLogin } from '../queries'
 import { AuthLayout } from './auth-layout'
 
 export function LoginPage() {
-  const navigate = useNavigate()
+  const [, navigate] = useLocation()
   const login = useLogin()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')

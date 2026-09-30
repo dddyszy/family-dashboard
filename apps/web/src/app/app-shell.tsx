@@ -1,7 +1,7 @@
 import { DEFAULT_HOUSEHOLD_SETTINGS } from '@shared/schemas/settings'
 import { LogOut } from 'lucide-react'
-import { Suspense } from 'react'
-import { Navigate, NavLink, Outlet, useLocation } from 'react-router'
+import { type ReactNode, Suspense } from 'react'
+import { Link, Redirect, useLocation } from 'wouter'
 import { Spinner } from '@/components/button'
 import { Glass } from '@/components/glass'
 import { Avatar } from '@/components/misc'
@@ -12,7 +12,7 @@ import { ReminderHost } from '@/modules/reminders/reminder-host'
 import { useHousehold } from '@/modules/settings/queries'
 import { resolveUserAppearance, useApplyAppearance } from './appearance'
 import { DrawerHost } from './drawer-host'
-import { NAV_ITEMS } from './modules'
+import { NAV_ITEMS, type NavItem } from './modules'
 import { RealtimeBridge } from './realtime-bridge'
 import { StatusBar } from './status-bar'
 
@@ -27,18 +27,22 @@ export function FullScreenSpinner() {
 function RedirectToAuth() {
   const status = useAuthStatus(true)
   if (status.isPending) return <FullScreenSpinner />
-  return <Navigate to={status.data?.initialized === false ? '/setup' : '/login'} replace />
+  return <Redirect to={status.data?.initialized === false ? '/setup' : '/login'} replace />
 }
 
-export function AppShell() {
+export function AppShell({ children }: { children: ReactNode }) {
   const me = useMe()
   if (!me.data) return me.isError ? <RedirectToAuth /> : <FullScreenSpinner />
   if (me.data.kind === 'anonymous') return <RedirectToAuth />
-  if (me.data.kind === 'device') return <Navigate to="/kiosk" replace />
-  return <SignedInShell />
+  if (me.data.kind === 'device') return <Redirect to="/kiosk" replace />
+  return <SignedInShell>{children}</SignedInShell>
 }
 
-function SignedInShell() {
+function isActive(item: NavItem, location: string): boolean {
+  return item.end ? location === item.to : location.startsWith(item.to)
+}
+
+function SignedInShell({ children }: { children: ReactNode }) {
   const user = useCurrentUser()
   const household = useHousehold().data ?? DEFAULT_HOUSEHOLD_SETTINGS
   useApplyAppearance((now) => (user ? resolveUserAppearance(user.prefs, household, now) : null))
@@ -47,9 +51,7 @@ function SignedInShell() {
     <div className="flex min-h-dvh">
       <Sidebar />
       <main className="safe-top min-w-0 flex-1 px-4 pt-5 pb-28 md:px-6 md:pb-8 lg:px-8">
-        <Suspense fallback={<FullScreenSpinner />}>
-          <Outlet />
-        </Suspense>
+        <Suspense fallback={<FullScreenSpinner />}>{children}</Suspense>
       </main>
       <TabBar />
       <DrawerHost />
@@ -64,6 +66,7 @@ function SignedInShell() {
 function Sidebar() {
   const user = useCurrentUser()
   const logout = useLogout()
+  const [location] = useLocation()
   return (
     <aside className="sticky top-0 hidden h-dvh shrink-0 p-3 md:block md:w-24 lg:w-64">
       <Glass refract className="flex h-full flex-col p-3">
@@ -75,22 +78,19 @@ function Sidebar() {
         </div>
         <nav className="flex flex-1 flex-col gap-1">
           {NAV_ITEMS.map((item) => (
-            <NavLink
+            <Link
               key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                cn(
-                  'pressable flex items-center gap-3 rounded-2xl px-3 py-3 font-medium transition md:justify-center lg:justify-start',
-                  isActive
-                    ? 'bg-accent text-accent-fg shadow'
-                    : 'text-fg-muted hover:bg-surface hover:text-fg',
-                )
-              }
+              href={item.to}
+              className={cn(
+                'pressable flex items-center gap-3 rounded-2xl px-3 py-3 font-medium transition md:justify-center lg:justify-start',
+                isActive(item, location)
+                  ? 'bg-accent text-accent-fg shadow'
+                  : 'text-fg-muted hover:bg-surface hover:text-fg',
+              )}
             >
               <item.icon className="size-5 shrink-0" />
               <span className="hidden lg:inline">{item.label}</span>
-            </NavLink>
+            </Link>
           ))}
         </nav>
         {user ? (
@@ -117,19 +117,16 @@ function Sidebar() {
 }
 
 function TabBar() {
-  const location = useLocation()
+  const [location] = useLocation()
   return (
     <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 px-3 pb-3 md:hidden">
       <Glass refract className="flex justify-around rounded-[28px] px-2 py-1.5">
         {NAV_ITEMS.map((item) => {
-          const active = item.end
-            ? location.pathname === item.to
-            : location.pathname.startsWith(item.to)
+          const active = isActive(item, location)
           return (
-            <NavLink
+            <Link
               key={item.to}
-              to={item.to}
-              end={item.end}
+              href={item.to}
               className={cn(
                 'pressable flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium',
                 active ? 'text-accent' : 'text-fg-muted',
@@ -137,7 +134,7 @@ function TabBar() {
             >
               <item.icon className="size-6" strokeWidth={active ? 2.2 : 1.8} />
               {item.label}
-            </NavLink>
+            </Link>
           )
         })}
       </Glass>

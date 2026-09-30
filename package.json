@@ -12,7 +12,7 @@
     "fix": "biome check --write .",
     "typecheck": "tsc -p packages/shared --noEmit && tsc -p apps/server --noEmit && tsc -p apps/web --noEmit",
     "build": "bun --filter '@family/web' build",
-    "preview": "bun run build && bun --filter '@family/server' start",
+    "preview": "bun run build && bun --filter '@family/server' preview",
     "start": "bun --filter '@family/server' start",
     "db:generate": "bun --filter '@family/server' db:generate",
     "db:migrate": "bun --filter '@family/server' db:migrate"

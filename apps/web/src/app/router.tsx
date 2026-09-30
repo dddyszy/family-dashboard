@@ -1,9 +1,9 @@
-import { lazy } from 'react'
-import { createBrowserRouter, Navigate } from 'react-router'
+import { lazy, Suspense } from 'react'
+import { Redirect, Route, Switch } from 'wouter'
 import { LoginPage } from '@/modules/auth/pages/login-page'
 import { SetupPage } from '@/modules/auth/pages/setup-page'
 import { HomePage } from '@/modules/home/pages/home-page'
-import { AppShell } from './app-shell'
+import { AppShell, FullScreenSpinner } from './app-shell'
 
 const CalendarPage = lazy(() =>
   import('@/modules/calendar/pages/calendar-page').then((m) => ({ default: m.CalendarPage })),
@@ -18,19 +18,29 @@ const KioskPage = lazy(() =>
   import('@/modules/kiosk/pages/kiosk-page').then((m) => ({ default: m.KioskPage })),
 )
 
-export const router = createBrowserRouter([
-  { path: '/login', element: <LoginPage /> },
-  { path: '/setup', element: <SetupPage /> },
-  { path: '/kiosk', element: <KioskPage /> },
-  {
-    element: <AppShell />,
-    children: [
-      { index: true, element: <HomePage /> },
-      { path: 'calendar', element: <CalendarPage /> },
-      { path: 'shopping', element: <ShoppingPage /> },
-      { path: 'shopping/:listId', element: <ShoppingPage /> },
-      { path: 'settings', element: <SettingsPage /> },
-    ],
-  },
-  { path: '*', element: <Navigate to="/" replace /> },
-])
+export function AppRoutes() {
+  return (
+    <Switch>
+      <Route path="/login" component={LoginPage} />
+      <Route path="/setup" component={SetupPage} />
+      <Route path="/kiosk">
+        <Suspense fallback={<FullScreenSpinner />}>
+          <KioskPage />
+        </Suspense>
+      </Route>
+      <Route>
+        <AppShell>
+          <Switch>
+            <Route path="/" component={HomePage} />
+            <Route path="/calendar" component={CalendarPage} />
+            <Route path="/shopping/:listId?" component={ShoppingPage} />
+            <Route path="/settings" component={SettingsPage} />
+            <Route>
+              <Redirect to="/" replace />
+            </Route>
+          </Switch>
+        </AppShell>
+      </Route>
+    </Switch>
+  )
+}

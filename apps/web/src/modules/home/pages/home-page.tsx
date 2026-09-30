@@ -2,7 +2,7 @@ import { appendToLayouts, removeFromLayouts, resizeInLayouts } from '@shared/lay
 import type { Layouts, WidgetInstance } from '@shared/schemas/dashboard'
 import { getZonedParts } from '@shared/time'
 import { Check, Pencil, Plus } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Button } from '@/components/button'
 import { Segmented } from '@/components/form'
 import { errorMessage } from '@/lib/api'
@@ -11,12 +11,17 @@ import { useNow } from '@/lib/use-now'
 import { useCurrentUser } from '@/modules/auth/queries'
 import { useTimeZone } from '@/modules/settings/queries'
 import { toast, useUi } from '@/stores/ui'
-import { parseWidgetConfig } from '@/widgets/registry'
+import { parseWidgetConfig, type WidgetDefinition } from '@/widgets/registry'
 import type { DashboardKind } from '../api'
 import { DashboardGrid } from '../components/dashboard-grid'
-import { WidgetConfigModal } from '../components/widget-config-modal'
-import { WidgetGallery } from '../components/widget-gallery'
 import { useDashboard, useHome, useSaveDashboard } from '../queries'
+
+const WidgetGallery = lazy(() =>
+  import('../components/widget-gallery').then((m) => ({ default: m.WidgetGallery })),
+)
+const WidgetConfigModal = lazy(() =>
+  import('../components/widget-config-modal').then((m) => ({ default: m.WidgetConfigModal })),
+)
 
 type Draft = { layouts: Layouts; widgets: WidgetInstance[] }
 
@@ -68,6 +73,26 @@ export function HomePage() {
     )
   }
 
+  const addWidget = (definition: WidgetDefinition) => {
+    const id = crypto.randomUUID()
+    setDraft((d) =>
+      d
+        ? {
+            layouts: appendToLayouts(d.layouts, id, definition.defaultSize),
+            widgets: [
+              ...d.widgets,
+              { id, type: definition.type, config: parseWidgetConfig(definition, {}) },
+            ],
+          }
+        : d,
+    )
+    setGalleryOpen(false)
+    if (definition.ConfigEditor) setConfiguring(id)
+  }
+
+  const configuringWidget = configuring
+    ? draft?.widgets.find((w) => w.id === configuring)
+    : undefined
   const current: Draft | undefined = draft ?? dashboard.data
   const hour = getZonedParts(now, timeZone).hour
   const isAdmin = user?.role === 'admin'
@@ -139,49 +164,29 @@ export function HomePage() {
         />
       ) : null}
 
-      <WidgetGallery
-        open={galleryOpen}
-        onOpenChange={setGalleryOpen}
-        onAdd={(definition) => {
-          const id = crypto.randomUUID()
-          setDraft((d) =>
-            d
-              ? {
-                  layouts: appendToLayouts(d.layouts, id, definition.defaultSize),
-                  widgets: [
-                    ...d.widgets,
-                    { id, type: definition.type, config: parseWidgetConfig(definition, {}) },
-                  ],
-                }
-              : d,
-          )
-          setGalleryOpen(false)
-          if (definition.ConfigEditor) setConfiguring(id)
-        }}
-      />
-      {configuring && draft
-        ? (() => {
-            const widget = draft.widgets.find((w) => w.id === configuring)
-            return widget ? (
-              <WidgetConfigModal
-                widget={widget}
-                onClose={() => setConfiguring(null)}
-                onSave={(config) =>
-                  setDraft((d) =>
-                    d
-                      ? {
-                          ...d,
-                          widgets: d.widgets.map((w) =>
-                            w.id === configuring ? { ...w, config } : w,
-                          ),
-                        }
-                      : d,
-                  )
-                }
-              />
-            ) : null
-          })()
-        : null}
+      <Suspense fallback={null}>
+        {galleryOpen ? (
+          <WidgetGallery open onOpenChange={setGalleryOpen} onAdd={addWidget} />
+        ) : null}
+        {configuringWidget ? (
+          <WidgetConfigModal
+            widget={configuringWidget}
+            onClose={() => setConfiguring(null)}
+            onSave={(config) =>
+              setDraft((d) =>
+                d
+                  ? {
+                      ...d,
+                      widgets: d.widgets.map((w) =>
+                        w.id === configuringWidget.id ? { ...w, config } : w,
+                      ),
+                    }
+                  : d,
+              )
+            }
+          />
+        ) : null}
+      </Suspense>
     </div>
   )
 }

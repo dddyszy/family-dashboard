@@ -1,9 +1,7 @@
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
-import { StrictMode, Suspense } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { RouterProvider } from 'react-router'
-import { FullScreenSpinner } from '@/app/app-shell'
-import { router } from '@/app/router'
+import { AppRoutes } from '@/app/router'
 import { ToastHost } from '@/components/toast-host'
 import { setUnauthorizedHandler } from '@/lib/api'
 import { PERSIST_BUSTER, PERSIST_MAX_AGE, persister, queryClient } from '@/lib/query-client'
@@ -24,11 +22,11 @@ createRoot(root).render(
     <PersistQueryClientProvider
       client={queryClient}
       persistOptions={{ persister, maxAge: PERSIST_MAX_AGE, buster: PERSIST_BUSTER }}
+      // Restored data renders instantly but may be arbitrarily old, so always revalidate it.
+      onSuccess={() => void queryClient.invalidateQueries()}
     >
       <div className="wallpaper" aria-hidden />
-      <Suspense fallback={<FullScreenSpinner />}>
-        <RouterProvider router={router} />
-      </Suspense>
+      <AppRoutes />
       <ToastHost />
     </PersistQueryClientProvider>
   </StrictMode>,

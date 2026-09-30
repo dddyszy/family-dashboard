@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { appendToLayouts, layoutsForSizes, packLayout, removeFromLayouts, sizeOf } from './layout'
+import {
+  appendToLayouts,
+  compactLayout,
+  layoutsForSizes,
+  packLayout,
+  removeFromLayouts,
+  sizeOf,
+} from './layout'
 
 describe('packLayout', () => {
   test('fills rows left to right and wraps', () => {
@@ -38,6 +45,29 @@ describe('packLayout', () => {
 
   test('clamps widths to the column count', () => {
     expect(packLayout([{ i: 'a', w: 6, h: 2 }], 4)[0]?.w).toBe(4)
+  })
+})
+
+describe('compactLayout', () => {
+  test('closes vertical gaps left by removed widgets', () => {
+    const items = compactLayout(
+      [
+        { i: 'a', x: 0, y: 0, w: 4, h: 2 },
+        { i: 'b', x: 0, y: 6, w: 4, h: 2 },
+        { i: 'c', x: 4, y: 3, w: 4, h: 2 },
+      ],
+      8,
+    )
+    expect(items.map((i) => [i.i, i.y])).toEqual([
+      ['a', 0],
+      ['c', 0],
+      ['b', 2],
+    ])
+  })
+
+  test('drops unknown ids and appends missing widgets', () => {
+    const items = compactLayout([{ i: 'gone', x: 0, y: 0, w: 2, h: 2 }], 4, ['new'])
+    expect(items).toEqual([{ i: 'new', x: 0, y: 0, w: 2, h: 2 }])
   })
 })
 

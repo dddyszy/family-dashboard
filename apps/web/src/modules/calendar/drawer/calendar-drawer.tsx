@@ -1,6 +1,6 @@
 import { addZonedDays, startOfZonedDay } from '@shared/time'
 import { CalendarCheck } from 'lucide-react'
-import { Link } from 'react-router'
+import { Link } from 'wouter'
 import { EmptyState } from '@/components/misc'
 import { formatFullDate } from '@/lib/time'
 import { useNow } from '@/lib/use-now'

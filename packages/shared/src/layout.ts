@@ -73,6 +73,39 @@ export function removeFromLayouts(layouts: Layouts, id: string): Layouts {
   }
 }
 
+function collides(a: LayoutItem, b: LayoutItem): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+}
+
+/**
+ * Moves every item up as far as it goes, mirroring react-grid-layout's vertical compaction, and
+ * appends any widget missing from the layout at the bottom.
+ */
+export function compactLayout(
+  items: readonly LayoutItem[],
+  cols: number,
+  ids?: readonly string[],
+): LayoutItem[] {
+  const known = ids ? items.filter((item) => ids.includes(item.i)) : [...items]
+  const placed: LayoutItem[] = []
+  const sorted = [...known].sort((a, b) => a.y - b.y || a.x - b.x)
+  for (const item of sorted) {
+    const w = Math.min(item.w, cols)
+    const next = { ...item, w, x: Math.min(item.x, cols - w), y: item.y }
+    while (next.y > 0 && !placed.some((p) => collides({ ...next, y: next.y - 1 }, p))) next.y--
+    while (placed.some((p) => collides(next, p))) next.y++
+    placed.push(next)
+  }
+  if (ids) {
+    for (const id of ids) {
+      if (placed.some((p) => p.i === id)) continue
+      const bottom = placed.reduce((max, p) => Math.max(max, p.y + p.h), 0)
+      placed.push({ i: id, x: 0, y: bottom, w: Math.min(2, cols), h: 2 })
+    }
+  }
+  return placed
+}
+
 export function sizeOf(item: Pick<LayoutItem, 'w' | 'h'>): WidgetSize {
   if (item.h >= 6) return 'XL'
   if (item.h >= 4) return 'L'

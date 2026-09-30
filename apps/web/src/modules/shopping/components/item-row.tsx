@@ -52,13 +52,13 @@ export function ItemRow({
 
   return (
     <li className="relative overflow-hidden rounded-2xl">
-      {onDelete ? (
+      {/* Rendered only while swiping: the glass row above is translucent and would let it show. */}
+      {onDelete && (offset < 0 || dragging) ? (
         <button
           type="button"
           onClick={onDelete}
           className="absolute inset-y-0 right-0 flex w-20 items-center justify-center bg-danger text-white"
           aria-label={`删除${item.name}`}
-          tabIndex={offset === 0 ? -1 : 0}
         >
           <Trash2 className="size-5" />
         </button>
