@@ -9,6 +9,8 @@ import { authenticate, originGuard } from './lib/auth'
 import type { AppEnv, Deps } from './lib/context'
 import { AppError } from './lib/errors'
 import { authRoutes } from './routes/auth'
+import { backupRoutes } from './routes/backup'
+import { calendarRoutes } from './routes/calendar'
 import { dashboardRoutes } from './routes/dashboards'
 import { deviceRoutes } from './routes/devices'
 import { settingsRoutes } from './routes/settings'
@@ -36,6 +38,8 @@ export function createApp(deps: Deps, options: AppOptions = {}) {
     .route('/', uploadRoutes)
     .route('/', dashboardRoutes)
     .route('/', shoppingRoutes)
+    .route('/', calendarRoutes)
+    .route('/', backupRoutes)
 
   api.onError((error, c) => {
     if (error instanceof AppError) {

@@ -7,6 +7,7 @@ import { Glass } from '@/components/glass'
 import { Avatar } from '@/components/misc'
 import { cn } from '@/lib/cn'
 import { useAuthStatus, useCurrentUser, useLogout, useMe } from '@/modules/auth/queries'
+import { CalendarEditorHost } from '@/modules/calendar/components/editor-host'
 import { ReminderHost } from '@/modules/reminders/reminder-host'
 import { useHousehold } from '@/modules/settings/queries'
 import { resolveUserAppearance, useApplyAppearance } from './appearance'
@@ -52,6 +53,7 @@ function SignedInShell() {
       </main>
       <TabBar />
       <DrawerHost />
+      <CalendarEditorHost />
       <ReminderHost />
       <RealtimeBridge />
       <StatusBar />
