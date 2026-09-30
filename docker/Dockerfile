@@ -2,11 +2,14 @@
 
 FROM oven/bun:1 AS build
 WORKDIR /app
+# Optional npm mirror for slow networks, e.g. https://registry.npmmirror.com
+ARG NPM_REGISTRY=
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
-RUN bun install --frozen-lockfile
+RUN if [ -n "$NPM_REGISTRY" ]; then export BUN_CONFIG_REGISTRY="$NPM_REGISTRY"; fi \
+  && bun install --frozen-lockfile
 COPY . .
 ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
@@ -14,7 +17,7 @@ RUN bun run build
 
 FROM oven/bun:1-alpine AS runtime
 WORKDIR /app
-RUN apk add --no-cache tzdata
+ARG NPM_REGISTRY=
 ENV NODE_ENV=production \
     PORT=8686 \
     DATA_DIR=/app/data \
@@ -23,7 +26,9 @@ COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
-RUN bun install --frozen-lockfile --production && rm -rf /root/.bun/install/cache
+RUN if [ -n "$NPM_REGISTRY" ]; then export BUN_CONFIG_REGISTRY="$NPM_REGISTRY"; fi \
+  && bun install --frozen-lockfile --production \
+  && rm -rf /root/.bun/install/cache
 COPY packages/shared/src packages/shared/src
 COPY apps/server/src apps/server/src
 COPY apps/server/tsconfig.json apps/server/
