@@ -4,6 +4,8 @@
 
 ## 常用命令
 
+需要先安装 [Bun](https://bun.sh)（1.4 以上）。
+
 ```bash
 bun install              # 安装依赖
 bun dev                  # 同时启动前端（Vite）与后端（热重载）
@@ -13,8 +15,8 @@ bun test                 # 仅运行测试
 bun run db:generate      # 修改 schema 后生成迁移
 bun run db:migrate       # 应用迁移（服务启动时也会自动执行）
 bun run build            # 构建前端产物
-bun run preview          # 以生产模式预览（启用 Service Worker）
-docker compose up -d     # 本地以容器方式运行
+bun run preview          # 构建并以生产模式在 8686 端口预览（启用 Service Worker）
+docker build -f docker/Dockerfile -t family-dashboard .  # 本地验证镜像能否构建；正式镜像由 GitHub Actions 构建
 ```
 
 ## 目录约定
@@ -57,6 +59,8 @@ docker compose up -d     # 本地以容器方式运行
 - 玻璃效果统一使用 `<Glass>` 组件，不要在业务组件里手写 `backdrop-filter`
 - 新卡片必须通过 `registerWidget` 注册，声明 `sizes` 和 `configSchema`；卡片内部错误由 `WidgetFrame` 兜底，不要让单张卡片拖垮首页
 - 实时消息统一通过 `lib/realtime.ts` 订阅，禁止自行新建 `EventSource`
+- 路由使用 wouter（`Link`、`useLocation`、`useParams`），不要引入 react-router
+- 只在交互时才需要的重组件（弹窗、编辑器、拖拽网格）用 `lazy()` 按需加载，保持首屏体积
 - Service Worker 缓存规则只写在 `src/pwa/cache-rules.ts`；新增不应缓存的接口（流式、鉴权、敏感数据）必须同步更新该文件
 - 新依赖需考虑首屏体积（gzip 后首屏 JS 预算 150KB），大依赖只能在懒加载路由中引入
 
@@ -88,8 +92,10 @@ docker compose up -d     # 本地以容器方式运行
 - 注释只写代码本身表达不了的约束或原因（例如浏览器限制、时区陷阱）
 - 不写复述代码的注释，不写修改记录，不保留注释掉的代码
 
-## 提交
+## 分支与提交
 
+- 远程仓库：`https://github.com/dddyszy/family-dashboard`
+- `master` 为稳定主分支，只接受来自 `dev` 的合并；日常开发在 `dev` 上进行，较大的功能从 `dev` 拉出 `feat/<名称>` 分支，完成后合回 `dev`
 - 遵循 Conventional Commits：`feat:`、`fix:`、`refactor:`、`style:`、`test:`、`docs:`、`chore:`
 - 作用域用模块名，例如 `feat(shopping): support batch paste`
 - 一次提交只做一件事

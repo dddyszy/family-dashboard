@@ -1,0 +1,22 @@
+{
+  "name": "@family/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "NODE_ENV=production bun src/index.ts",
+    "preview": "NODE_ENV=production APP_SECRET=local-preview-only-secret-never-deploy-this bun src/index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun src/db/migrate-cli.ts"
+  },
+  "dependencies": {
+    "croner": "^10.0.1",
+    "drizzle-orm": "^0.45.3",
+    "hono": "^4.13.11",
+    "rrule": "^2.8.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11"
+  }
+}

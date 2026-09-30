@@ -1,0 +1,138 @@
+# 群晖 NAS 部署指南
+
+本文以群晖 DSM 7.2 为例，其他 NAS 或 Linux 主机只需完成「第 1 步」和「第 4 步」中的通用部分。威联通的对应入口见文末。
+
+整体结构：家里的设备通过 HTTPS 访问 NAS 自带的反向代理，反向代理再转发到容器的 8686 端口。
+
+```
+手机 / 平板 / 电脑  ──HTTPS 443──▶  DSM 反向代理  ──HTTP 8686──▶  family-dashboard 容器
+```
+
+HTTPS 是必需的：PWA 安装、离线缓存和大屏的屏幕常亮都只在 HTTPS 下可用。
+
+---
+
+## 第 1 步：准备配置文件
+
+镜像由 GitHub Actions 预先构建好（见 [镜像自动构建](CI_IMAGE.md)），NAS 上不需要源码，只需要两个文件。
+
+1. 在 DSM「套件中心」安装 **Container Manager**。
+2. 在「File Station」中新建文件夹，例如 `/docker/family-dashboard`。
+3. 把仓库中的 [`docker-compose.yml`](../docker-compose.yml) 和 [`.env.example`](../.env.example) 上传到这个文件夹（在 GitHub 上打开文件 →「Download raw file」下载），并把 `.env.example` 改名为 `.env`。
+4. 编辑 `.env`，按注释填写：
+
+   ```bash
+   # 至少 32 位的随机字符串。可以在任意电脑上执行 openssl rand -hex 32 生成
+   APP_SECRET=请替换为随机字符串
+   # 第 3 步配置好的访问地址
+   PUBLIC_URL=https://dash.你的名字.synology.me
+   # 国内拉取 ghcr.io 慢时，改用阿里云镜像（地址见 CI_IMAGE.md）
+   # IMAGE=registry.cn-hangzhou.aliyuncs.com/dddyszy/family-dashboard:latest
+   ```
+## 第 2 步：启动容器
+
+1. 打开 Container Manager →「项目」→「新增」。
+2. 项目名称填 `family-dashboard`，路径选择第 1 步的文件夹，来源选择「使用现有的 docker-compose.yml」。
+3. 点击「下一步」直到完成，Container Manager 会下载镜像（约 100MB）并启动容器。
+4. 在浏览器访问 `http://NAS的IP:8686`，能看到「欢迎使用家庭看板」即表示启动成功。先不要创建账号，完成 HTTPS 配置后再用正式地址访问。
+
+数据全部保存在项目文件夹下的 `data/` 目录中：`app.db` 是数据库，`uploads/` 是头像和壁纸，`backups/` 是自动备份。
+
+## 第 3 步：域名与证书
+
+### 3.1 申请免费域名（没有自己的域名时）
+
+「控制面板」→「外部访问」→「DDNS」→「新增」：
+
+- 服务供应商：`Synology`
+- 主机名称：例如 `dash-zhang`，得到 `dash-zhang.synology.me`
+- 勾选「通过 Let's Encrypt 获取证书并设为默认证书」
+
+### 3.2 使用自己的域名
+
+把一个子域名（例如 `dash.example.com`）解析到家里的公网 IP，然后在「控制面板」→「安全性」→「证书」→「新增」→「添加新证书」→「从 Let's Encrypt 获取证书」中申请。
+
+如果不想对外开放 80 端口，可以改用 DNS 验证方式（例如在 NAS 上运行 acme.sh 的 DNS 插件）申请证书，再导入到 DSM。
+
+## 第 4 步：配置反向代理
+
+「控制面板」→「登录门户」→「高级」→「反向代理服务器」→「新增」：
+
+| 项目 | 来源 | 目的地 |
+| --- | --- | --- |
+| 协议 | HTTPS | HTTP |
+| 主机名 | `dash-zhang.synology.me` | `localhost` |
+| 端口 | 443 | 8686 |
+
+- 在「来源」下勾选「启用 HTTP/2」。
+- 切换到「自定义标头」页，点击「新增」→「WebSocket」（会自动添加 `Upgrade` 和 `Connection` 两个标头，对实时同步的长连接更友好）。
+- 切换到「高级设置」页，把「代理读取超时」调大到 `300` 秒。
+
+然后在「控制面板」→「安全性」→「证书」→「设置」中，为 `dash-zhang.synology.me` 这条反向代理规则指定第 3 步申请的证书。
+
+> 服务端已经处理了反向代理最常见的两个坑：实时同步的响应带有 `X-Accel-Buffering: no`，防止被缓冲；每 20 秒发送一次心跳，防止连接被超时断开。
+
+## 第 5 步：只在家里访问（可选）
+
+如果不打算从外网访问，可以不开放路由器端口，让域名在家里直接解析到 NAS 的内网 IP：
+
+- 路由器支持「DNS 重写」「静态 DNS」或「自定义 hosts」时，添加一条：`dash-zhang.synology.me → 192.168.x.x`（NAS 的内网 IP）。
+- 或者在 DSM 安装「DNS Server」套件，把它设为家里路由器的 DNS。
+
+证书与域名绑定，与 IP 无关，所以内网解析后 HTTPS 依然有效。
+
+## 第 6 步：初始化与添加设备
+
+1. 用 `https://dash-zhang.synology.me` 打开，创建管理员账号。
+2. 「设置」→「家庭」：添加家庭成员，设置天气城市。
+3. 手机上用 Safari 或 Chrome 打开网址，选择「添加到主屏幕」或「安装应用」。
+4. 挂墙平板：
+   - 管理员在「设置」→「大屏」中点击「添加设备」，得到 6 位配对码。
+   - 平板打开 `https://dash-zhang.synology.me/kiosk`，输入配对码。
+   - 添加到主屏幕后从图标启动，即为无地址栏的全屏大屏。
+   - 在大屏上点一次「点击启用提醒声音」，之后提醒到来时才会响铃（浏览器限制）。
+
+**iPad 额外建议**：iOS 18.4 之前，主屏幕应用中的屏幕常亮功能不稳定。请在「设置」→「显示与亮度」中把「自动锁定」设为「永不」，并在「辅助功能」→「引导式访问」中开启，把平板锁定在本应用。
+
+**安卓平板额外建议**：如需开机自动打开、防止被误退出，可以使用 Fully Kiosk Browser 一类的专用浏览器打开 `/kiosk`。
+
+## 部署自检清单
+
+- [ ] 浏览器地址栏显示锁标志，证书域名正确
+- [ ] Chrome 开发者工具 → Application：Manifest 无报错，Service Worker 状态为 activated
+- [ ] 手机可以「添加到主屏幕」，打开后没有地址栏
+- [ ] 两台设备同时打开同一个购物清单，一边勾选，另一边 1 秒内同步
+- [ ] 大屏放置 10 分钟不熄屏
+- [ ] 新建一个 2 分钟后开始、提醒为「准时」的日程，到点时大屏弹窗并响铃
+
+## 备份与升级
+
+- 每天凌晨 2 点自动备份数据库到 `data/backups/`，保留最近 7 份；「设置」→「数据」中可以手动备份和下载。
+- 建议在 Hyper Backup 中把 `docker/family-dashboard/data` 加入备份任务。
+- 升级：SSH 进入项目文件夹执行 `sudo docker compose pull && sudo docker compose up -d`。也可以在 Container Manager 的「映像」中更新 `family-dashboard` 映像后重启项目（不同 DSM 版本的按钮名称略有差异）。启动时如果有数据库结构变更，会先自动备份一次再升级。想固定在某个版本，把 `.env` 中的 `IMAGE` 写成带版本号的地址（见 [镜像自动构建](CI_IMAGE.md)）。
+
+## 常见问题
+
+**拉取镜像很慢或失败**
+国内访问 `ghcr.io` 不稳定。在 `.env` 中把 `IMAGE` 改为阿里云镜像地址后重新启动项目（阿里云镜像的配置见 [镜像自动构建](CI_IMAGE.md)）。
+
+**提示 `denied` 或无权限拉取镜像**
+GHCR 上的镜像还没有设为公开，按 [镜像自动构建](CI_IMAGE.md) 中「把 GHCR 镜像设为公开」操作一次即可。
+
+**购物清单不能实时同步 / 页面提示「正在重新连接」**
+检查第 4 步中的「代理读取超时」是否已调大，以及是否添加了 WebSocket 自定义标头。
+
+**登录后刷新又回到登录页**
+确认 `.env` 中的 `PUBLIC_URL` 与浏览器地址栏中的地址完全一致（包括 `https://`）。
+
+**天气一直显示「暂时无法获取」**
+NAS 需要能访问 `api.open-meteo.com`。可以在 NAS 上执行 `curl https://api.open-meteo.com` 检查网络。
+
+**提醒没有声音**
+浏览器要求页面被点击过才能发声。手机和电脑上点一下页面任意位置即可；大屏上点一次「点击启用提醒声音」。
+
+## 威联通（QNAP）
+
+- 容器：在 Container Station 中「创建」→「应用程序」，粘贴 `docker-compose.yml` 的内容，并把 `.env` 中的变量写进 `environment`。
+- 证书：「控制台」→「安全」→「SSL 证书和私钥」。
+- 反向代理：「控制台」→「网络和文件服务」→「网络访问」→「反向代理」。不同 QTS 版本的入口名称可能略有差异。
