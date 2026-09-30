@@ -1,8 +1,8 @@
 # 使用已发布镜像，服务器上无需源码和构建环境。
 services:
   app:
-    # 切换镜像源或固定版本时，直接修改此地址；镜像需已实际发布。
-    image: ghcr.io/dddyszy/family-dashboard:latest
+    # 升级版本或切换镜像源时，直接修改此地址；镜像需已实际发布。
+    image: ghcr.io/dddyszy/family-dashboard:v0.2.0
     container_name: family-dashboard
     restart: unless-stopped
     ports:

@@ -1,5 +1,7 @@
 # HTTPS 配置指南
 
+适用看板版本：**v0.2.0**。本文的 NPM 版本与看板版本分别管理；看板升级说明见 [更新日志](../CHANGELOG.md)。
+
 本文是 [Docker Compose 部署指南](DEPLOY_DOCKER_COMPOSE.md) 的可选补充。请先完成基础部署，确认通过 `http://服务器内网IP:8686` 可以登录、编辑卡片和保存数据，再增加 HTTPS 入口。
 
 配置继续使用 Compose，**不需要 `.env` 文件**。看板容器仍提供 HTTP，由反向代理处理证书和 TLS。增加 HTTPS 不需要重建账号或搬迁数据库；可以同时保留原来的 HTTP 内网入口。
@@ -282,7 +284,7 @@ https://dash.example.com
 
 配置 HTTPS 的 `PUBLIC_URL` 不会关闭 HTTP 直连，也不再使 HTTP 响应强制带上 Secure Cookie。HTTP 和 HTTPS 使用不同名称的会话、设备 Cookie，避免同一主机下两种协议互相覆盖；新建的独立会话可以分别退出。
 
-这一行为需要使用包含双协议修复的镜像。仅更新本地源码或推送 `dev` 不会更新已发布的 `latest`；旧版本仍可能在配置 HTTPS 地址后无法保留 HTTP 登录，请按 [版本与升级说明](DEPLOY_DOCKER_COMPOSE.md#8-镜像版本与升级)核对。
+`v0.2.0` 已包含双协议修复。仅更新源码或推送 `master` / `dev` 不会发布镜像；固定版本的部署还需修改 Compose 镜像标签并重建容器。早期未标记版本的镜像仍可能在配置 HTTPS 地址后无法保留 HTTP 登录，请按 [版本与升级说明](DEPLOY_DOCKER_COMPOSE.md#8-镜像版本与升级)核对。
 
 ### 5.3 如果以后只使用 HTTPS
 
@@ -373,7 +375,7 @@ curl -fsS https://dash.example.com/api/health
 5. 大屏通过 HTTPS 的 `/kiosk` 配对并显示。
 6. 如果保留 HTTP 入口，再从原 IP + 端口登录、编辑卡片并刷新，确认两种方式都可用。
 
-排查 Cookie 时，应在浏览器开发者工具中确认 HTTPS 登录设置了带 `Secure`、`HttpOnly`、`SameSite=Lax` 的 Cookie。当前源码的名称为 `__Secure-fd_session`、`__Secure-fd_device`；HTTP 使用 `fd_session_http`、`fd_device_http`。不要复制或公开 Cookie 值。
+排查 Cookie 时，应在浏览器开发者工具中确认 HTTPS 登录设置了带 `Secure`、`HttpOnly`、`SameSite=Lax` 的 Cookie。`v0.2.0` 中的名称为 `__Secure-fd_session`、`__Secure-fd_device`；HTTP 使用 `fd_session_http`、`fd_device_http`。不要复制或公开 Cookie 值。
 
 ### 7.3 增强功能
 
@@ -435,7 +437,7 @@ sudo docker compose logs --tail=100 proxy
 | HTTPS 正常但离线功能失败 | 查看设置页提示，确认安全上下文、浏览器支持、Service Worker 注册和缓存准备状态 |
 | 常亮或声音仍不可用 | 检查前台状态、省电策略、浏览器能力和声音授权；证书正常不代表这些限制自动消失 |
 | 关闭 Force SSL 后浏览器仍强制跳 HTTPS | 检查此前是否启用 HSTS，包括父域名策略；可继续通过 NAS 内网 IP 访问 HTTP |
-| HTTPS 配好后原 HTTP 登录失败 | 核对是否仍运行旧版镜像；当前源码支持双协议，需部署包含修复的版本 |
+| HTTPS 配好后原 HTTP 登录失败 | 核对是否仍运行旧版镜像；`v0.2.0` 支持双协议，更新镜像后重建容器 |
 | 代理或看板更新后仍看到旧页面 | 检查实际镜像版本，使用页面更新提示或强制刷新；不要删除数据库来解决浏览器缓存问题 |
 
 配置依据与参考：
