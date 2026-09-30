@@ -1,5 +1,6 @@
 import { CloudSun } from 'lucide-react'
 import { z } from 'zod'
+import { cn } from '@/lib/cn'
 import { useWeather } from '@/modules/home/queries'
 import { registerWidget, type WidgetProps } from '../registry'
 import { describeWeather } from './weather-codes'
@@ -26,9 +27,16 @@ function WeatherWidget({ size }: WidgetProps) {
   const Icon = now.icon
 
   const summary = (
-    <div className="flex flex-col">
-      <p className="text-sm font-semibold">{data.location}</p>
-      <p className="mt-1 text-5xl leading-none font-light tabular-nums">
+    <div className="flex min-w-0 flex-col">
+      <p className="truncate text-[clamp(0.875rem,3.5cqw,1.25rem)] font-semibold">
+        {data.location}
+      </p>
+      <p
+        className={cn(
+          'mt-1 leading-none font-light tabular-nums',
+          size === 'S' ? 'text-[clamp(3rem,24cqw,6rem)]' : 'text-[clamp(3rem,14cqw,6rem)]',
+        )}
+      >
         {Math.round(data.current.temperature)}°
       </p>
     </div>
@@ -36,13 +44,13 @@ function WeatherWidget({ size }: WidgetProps) {
 
   if (size === 'S') {
     return (
-      <div className="flex h-full flex-col justify-between p-4">
+      <div className="flex h-full flex-col justify-between p-[clamp(1rem,4cqw,2rem)]">
         {summary}
         <div>
-          <Icon className="mb-1 size-5" style={{ color: now.color }} />
-          <p className="text-sm font-medium">{now.label}</p>
+          <Icon className="mb-1 size-[clamp(1.25rem,8cqw,2.5rem)]" style={{ color: now.color }} />
+          <p className="text-[clamp(0.875rem,3.5cqw,1.25rem)] font-medium">{now.label}</p>
           {today ? (
-            <p className="text-xs text-fg-muted">
+            <p className="text-[clamp(0.75rem,2.8cqw,1rem)] text-fg-muted">
               最高 {Math.round(today.max)}° 最低 {Math.round(today.min)}°
             </p>
           ) : null}
@@ -53,30 +61,45 @@ function WeatherWidget({ size }: WidgetProps) {
 
   const days = data.daily.slice(0, size === 'M' ? 5 : 6)
   return (
-    <div className="flex h-full flex-col justify-between gap-2 p-4">
-      <div className="flex items-start justify-between">
+    <div className="flex h-full flex-col justify-between gap-2 p-[clamp(1rem,4cqw,2rem)]">
+      <div className="flex items-start justify-between gap-3">
         {summary}
         <div className="text-right">
-          <Icon className="ml-auto size-8" style={{ color: now.color }} />
-          <p className="mt-1 text-sm font-medium">{now.label}</p>
-          <p className="text-xs text-fg-muted">
+          <Icon className="ml-auto size-[clamp(2rem,7cqw,3rem)]" style={{ color: now.color }} />
+          <p className="mt-1 text-[clamp(0.875rem,3.5cqw,1.25rem)] font-medium">{now.label}</p>
+          <p className="text-[clamp(0.75rem,2.8cqw,1rem)] text-fg-muted">
             体感 {Math.round(data.current.apparentTemperature)}° · 湿度 {data.current.humidity}%
           </p>
         </div>
       </div>
-      <div className={size === 'M' ? 'flex justify-between' : 'flex flex-col gap-2'}>
+      <div
+        className={
+          size === 'M'
+            ? 'grid grid-cols-5 @max-[310px]/widget:grid-cols-4 @max-[310px]/widget:[&>div:last-child]:hidden'
+            : 'flex flex-col gap-2'
+        }
+      >
         {days.map((d, i) => {
           const info = describeWeather(d.weatherCode)
           return size === 'M' ? (
-            <div key={d.date} className="flex flex-col items-center gap-0.5 text-xs">
+            <div
+              key={d.date}
+              className="flex flex-col items-center gap-0.5 text-[clamp(0.75rem,3cqw,1.125rem)]"
+            >
               <span className="text-fg-muted">{dayLabel(d.date, i)}</span>
-              <info.icon className="size-4.5" style={{ color: info.color }} />
+              <info.icon
+                className="size-[clamp(1.125rem,4.5cqw,1.75rem)]"
+                style={{ color: info.color }}
+              />
               <span className="tabular-nums">
                 {Math.round(d.max)}°/{Math.round(d.min)}°
               </span>
             </div>
           ) : (
-            <div key={d.date} className="flex items-center gap-3 text-sm">
+            <div
+              key={d.date}
+              className="flex items-center gap-3 text-[clamp(0.875rem,3.5cqw,1.25rem)]"
+            >
               <span className="w-10 text-fg-muted">{dayLabel(d.date, i)}</span>
               <info.icon className="size-5" style={{ color: info.color }} />
               <span className="flex-1">{info.label}</span>

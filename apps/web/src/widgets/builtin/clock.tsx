@@ -16,10 +16,14 @@ function ClockWidget({ size }: WidgetProps) {
 
   if (size === 'S') {
     return (
-      <div className="flex h-full flex-col justify-between p-4">
-        <p className="text-sm font-semibold text-danger">{weekdayLabel(now, timeZone)}</p>
-        <p className="text-4xl font-semibold tracking-tight tabular-nums">{time}</p>
-        <p className="text-xs text-fg-muted">
+      <div className="flex h-full flex-col justify-between p-[clamp(1rem,5cqw,2rem)]">
+        <p className="text-[clamp(0.875rem,3cqw,1.25rem)] font-semibold text-danger">
+          {weekdayLabel(now, timeZone)}
+        </p>
+        <p className="text-[clamp(2.25rem,20cqw,5rem)] leading-none font-semibold tracking-tight tabular-nums">
+          {time}
+        </p>
+        <p className="text-[clamp(0.75rem,4.5cqw,1rem)] text-fg-muted">
           {p.month}月{p.day}日{lunar ? ` · ${lunar}` : ''}
         </p>
       </div>
@@ -27,17 +31,23 @@ function ClockWidget({ size }: WidgetProps) {
   }
 
   return (
-    <div className="flex h-full items-center justify-between gap-4 p-5">
+    <div className="flex h-full items-center justify-between gap-4 p-[clamp(1.25rem,4cqw,2rem)]">
       <div className="flex flex-col">
-        <p className="text-sm font-semibold text-danger">{weekdayLabel(now, timeZone)}</p>
-        <p className="text-5xl leading-none font-bold tabular-nums">{p.day}</p>
-        <p className="mt-1 text-sm text-fg-muted">
+        <p className="text-[clamp(0.875rem,3cqw,1.25rem)] font-semibold text-danger">
+          {weekdayLabel(now, timeZone)}
+        </p>
+        <p className="text-[clamp(3rem,12cqw,6rem)] leading-none font-bold tabular-nums">{p.day}</p>
+        <p className="mt-1 text-[clamp(0.875rem,3cqw,1.25rem)] text-fg-muted">
           {p.year}年{p.month}月
         </p>
       </div>
       <div className="text-right">
-        <p className="text-5xl font-semibold tracking-tight tabular-nums lg:text-6xl">{time}</p>
-        {lunar ? <p className="mt-1 text-sm text-fg-muted">农历{lunar}</p> : null}
+        <p className="text-[clamp(3rem,14cqw,7rem)] leading-none font-semibold tracking-tight tabular-nums">
+          {time}
+        </p>
+        {lunar ? (
+          <p className="mt-1 text-[clamp(0.875rem,3cqw,1.25rem)] text-fg-muted">农历{lunar}</p>
+        ) : null}
       </div>
     </div>
   )
