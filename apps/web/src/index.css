@@ -115,8 +115,9 @@
     position: relative;
     isolation: isolate;
     background: var(--glass-bg);
+    /* Write only the standard property; the build adds -webkit- for Safari. Declaring both lets the
+       minifier keep just the prefixed one, which Chrome ignores. */
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     border-radius: var(--radius-card);
     box-shadow:
       inset 0 1px 0 0 var(--glass-highlight),
