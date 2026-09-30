@@ -1,6 +1,6 @@
 # 家庭大屏看板（Family Dashboard）技术设计
 
-> 版本：v0.1（第一期设计）　更新日期：2026-09-30
+> 版本：v0.2（第一期已实现）　更新日期：2026-09-30
 >
 > 本文是项目的技术基线。实现过程中如有偏离（新增接口、改表结构、调整技术选型），必须同步更新本文。代码规范见根目录 [`AGENTS.md`](../AGENTS.md)。
 
@@ -88,7 +88,8 @@
 | 前端 | React 19 + Vite + TypeScript | 生态成熟，构建快 |
 | 样式 | Tailwind CSS v4 + CSS 变量 | 主题切换只需替换变量 |
 | 基础组件 | Radix UI | 无样式、可访问性好，方便套玻璃风格 |
-| 卡片网格 | `react-grid-layout` | 拖拽、缩放、响应式断点一应俱全 |
+| 路由 | wouter | 约 2KB，替代 react-router 以满足首屏体积预算 |
+| 卡片网格 | `react-grid-layout` | 拖拽与响应式断点；只在编辑模式按需加载，浏览时用 CSS Grid 渲染相同布局 |
 | 服务端状态 | TanStack Query | 缓存、乐观更新、stale-while-revalidate |
 | UI 状态 | Zustand | 轻量，只存界面状态 |
 | 实时 | SSE（Server-Sent Events） | 单向推送已足够，比 WebSocket 更简单，穿透反向代理更容易 |
@@ -202,7 +203,7 @@ family-dashboard/
   docker-compose.yml
   docs/
     TECH_DESIGN.md
-    DEPLOY_SYNOLOGY.md            # 群晖部署图文指南（M5 编写）
+    DEPLOY_SYNOLOGY.md            # 群晖部署指南
   AGENTS.md
   biome.json
   .editorconfig
@@ -242,7 +243,7 @@ modules/<name>/
 ### 5.2 首页卡片
 
 - **尺寸**：S(2x2)、M(4x2)、L(4x4)、XL(4x6)，单位为网格格子
-- **编辑模式**：长按卡片或点击「编辑」进入，卡片轻微抖动（类似 iOS），此时可拖拽、缩放、删除；点击「完成」保存
+- **编辑模式**：点击「编辑」进入，卡片轻微抖动（类似 iOS），此时可拖拽排序、删除，并通过卡片底部的 S / M / L / XL 按钮切换尺寸（只能切换到该卡片支持的尺寸，不做自由缩放）；点击「完成」保存，「取消」放弃修改
 - **卡片库**：按模块分组，展示每张卡片的实时预览，点击或拖入即可添加；每张卡片可以单独配置（例如选哪个购物清单、显示哪些成员）
 - **布局归属**：每个用户保存自己的首页布局；另有一个「家庭公共大屏」布局，专门给挂墙平板使用，只有管理员可以编辑
 - **第一期提供的卡片**：
@@ -266,7 +267,8 @@ modules/<name>/
 
 - 月、周、日、列表（议程）四种视图
 - 每个成员有自己的颜色，事件按参与成员着色；支持按成员筛选
-- 周视图和日视图支持拖拽调整时间和时长
+- 周视图和日视图显示当前时间线，点击空白时段即可在该时间新建日程；月视图点击某天进入该天的日视图
+- 拖拽事件调整时间和时长尚未实现，计划在后续版本加入
 
 **事件**
 
@@ -373,7 +375,8 @@ registerWidget({
 
 - `type`：全局唯一，格式为 `<模块>.<卡片名>`
 - `sizes`：支持的尺寸；缩放时只能吸附到这些尺寸
-- `configSchema`：卡片配置的 zod schema，同时用来自动生成配置表单
+- `configSchema`：卡片配置的 zod schema，用于校验与填充默认值；配置不合法时自动回退到默认配置
+- `ConfigEditor`（可选）：编辑配置的组件，例如选择显示哪个购物清单；没有该组件的卡片不显示设置按钮
 - `component`：接收 `{ size, config }`，自行通过 TanStack Query 读取数据
 - `drawer`：点击卡片时打开的抽屉，不填则跳转到模块功能页
 
@@ -396,11 +399,14 @@ registerWidget({
 
 ```json
 {
-  "calendar": { "today": [], "upcoming": [], "nextEvent": null, "todos": [] },
-  "shopping": { "lists": [], "pendingCount": 12 },
-  "weather": { "now": {}, "daily": [] }
+  "members": [],
+  "calendar": { "rangeStart": 0, "rangeEnd": 0, "instances": [], "todos": [] },
+  "shopping": { "lists": [], "pendingItems": { "<listId>": [] } }
 }
 ```
+
+- `calendar.instances` 为今天起 14 天内已展开的日程实例，今日日程、近期日程、下一项等卡片都从中筛选
+- 天气不放在 `/api/home` 中，而是单独走 `/api/weather`（服务端缓存 30 分钟），避免第三方接口拖慢首页
 
 - 服务端每个模块注册一个汇总函数 `registerHomeContributor('calendar', (ctx) => ...)`，`/api/home` 并行调用所有汇总函数后合并返回
 - 前端把这份数据写入各模块对应的 query key，卡片组件通过 `select` 取自己需要的部分；之后的实时更新走各模块自己的 query
@@ -442,20 +448,20 @@ erDiagram
 
 | 表 | 主要字段 | 说明 |
 | --- | --- | --- |
-| `users` | id, username, name, avatar, color, role(`admin`/`member`), password_hash | 家庭成员 |
+| `users` | id, username, name, avatar, color, role(`admin`/`member`), password_hash, prefs(JSON：主题、壁纸、夜间自动深色、性能模式、折射效果) | 家庭成员 |
 | `sessions` | id, user_id, token_hash, expires_at, user_agent | 登录会话，只存令牌的哈希 |
-| `devices` | id, name, token_hash, dashboard_id, last_seen_at, revoked_at | 大屏设备 |
+| `devices` | id, name, token_hash, last_seen_at, revoked_at | 大屏设备，统一显示家庭公共大屏 |
 | `pairing_codes` | code, expires_at | 大屏配对码，5 分钟有效 |
-| `settings` | key, value(JSON) | 家庭级设置：时区、天气位置等 |
+| `settings` | key, value(JSON) | 家庭级设置：时区、天气位置、夜间深色时段、大屏外观与夜间模式 |
 | `events` | id, owner_id, visibility, title, location, note, color, start_at, end_at, all_day, rrule, exdates(JSON), parent_id, recurrence_id, remind_offsets(JSON) | 日程 |
 | `event_participants` | event_id, user_id | 参与成员 |
 | `todos` | id, owner_id, visibility, title, due_at, rrule, assignee_ids(JSON), remind_offsets(JSON), done_at | 待办 |
 | `shopping_lists` | id, owner_id, visibility, name, icon, color, sort | 购物清单 |
 | `shopping_items` | id, list_id, name, qty, unit, category, note, added_by, checked, checked_by, checked_at, archived_at | 购物条目 |
-| `shopping_history` | name(唯一), category, count, last_at | 联想与自动归类 |
-| `dashboards` | id, user_id(为空表示家庭公共大屏), layout(JSON) | 首页布局 |
+| `shopping_history` | key(规范化名称，主键), name, category, count, last_at | 联想与自动归类 |
+| `dashboards` | id(家庭公共大屏固定为 `family`), user_id, layouts(JSON，按断点) | 首页布局 |
 | `widgets` | id, dashboard_id, type, config(JSON) | 卡片实例 |
-| `reminders` | id, source_type(`event`/`todo`), source_id, occurrence_at, user_id, fire_at, status, fired_at | 提醒 |
+| `reminders` | id, source_type(`event`/`todo`), source_id, occurrence_at, user_id, fire_at, status, fired_at, payload(JSON：标题、开始时间、地点、是否家庭可见) | 提醒；payload 是生成时的快照，弹窗无需再查源数据 |
 
 **索引**
 
@@ -513,14 +519,15 @@ stateDiagram-v2
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/events?from&to&members` | 区间内的事件实例（已展开重复） |
+| GET | `/events?from&to` | 区间内的事件实例（已展开重复，最长 120 天）；按成员筛选在前端完成 |
+| GET | `/events/:id` | 单个事件（存储形态，未展开） |
 | POST | `/events` | 新建事件 |
 | PATCH | `/events/:id?scope=this\|following\|all&occurrence=` | 修改事件，重复事件需带 `scope` 和实例时间 |
 | DELETE | `/events/:id?scope=this\|following\|all&occurrence=` | 删除事件 |
 | GET | `/todos?status=open\|done` | 待办列表 |
 | POST | `/todos` | 新建待办 |
 | PATCH / DELETE | `/todos/:id` | 修改 / 删除待办 |
-| POST | `/todos/:id/done` | 完成（重复待办会生成下一次） |
+| POST | `/todos/:id/done` | 请求体 `{ done: boolean }`；完成重复待办时顺延到下一次截止时间，不关闭 |
 | POST | `/parse` | 快捷录入解析，返回草稿，不落库 |
 
 **提醒**
@@ -553,9 +560,10 @@ stateDiagram-v2
 | PUT | `/dashboards/:id` | 保存布局与卡片 |
 | GET | `/weather` | 天气（服务端缓存 30 分钟） |
 | GET | `/stream` | SSE 实时通道 |
-| POST | `/uploads` | 上传头像、壁纸（限制 5MB，仅图片） |
-| POST | `/backup` | 立即备份（管理员） |
-| GET | `/export` | 导出全部数据为 JSON（管理员） |
+| POST | `/uploads` | 上传头像、壁纸（限制 5MB，仅图片），文件通过 `/uploads/<name>` 访问 |
+| GET / POST | `/backups` | 备份列表 / 立即备份（管理员） |
+| GET | `/backups/:name` | 下载备份文件（管理员） |
+| GET | `/export` | 导出全部数据为 JSON，不含密码哈希和令牌（管理员） |
 | GET | `/health` | 健康检查，供 Docker 使用 |
 
 ---
@@ -688,8 +696,8 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 
 ### 9.5 性能模式
 
-- `backdrop-filter` 在低端安卓平板上开销较大。设置中提供「性能模式」开关：开启后改用不透明度更高的纯色背景，关闭模糊和折射滤镜，动画时长减半
-- 首次在大屏上打开时，测量前几秒的帧率，低于 40fps 时提示用户开启性能模式
+- `backdrop-filter` 在低端安卓平板上开销较大。设置中提供「性能模式」开关：开启后改用不透明的纯色背景，关闭模糊和折射滤镜
+- 计划中：首次在大屏上打开时测量帧率，过低时提示开启性能模式（尚未实现）
 
 ---
 
@@ -710,7 +718,7 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 - 数据通过 SSE 实时更新，另外每 5 分钟静默刷新一次作为兜底
 - 每天凌晨 4 点整页重载一次，释放长时间运行积累的内存，同时应用新版本
 - 屏幕常亮：使用 Wake Lock API，页面切回前台时自动重新申请；夜间时段主动释放
-- 夜间模式：可设定时段（默认 23:00 – 06:30）调暗屏幕或只显示大时钟
+- 夜间模式：可设定时段（默认 23:00 – 06:30）调暗屏幕或只显示大时钟；夜间点一下屏幕可临时唤醒 5 分钟
 - 平板把 PWA 安装到桌面后，以 `standalone` 方式打开，没有浏览器地址栏
 
 **已知限制**
@@ -769,7 +777,8 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 
 **前端**
 
-- 各模块路由懒加载；首屏 JS（gzip 后）控制在 150KB 以内，CI 中检查体积预算
+- 各模块路由懒加载；首屏 JS（gzip 后）控制在 150KB 以内，当前约 138KB
+- 只在需要时加载的部分：拖拽网格（编辑模式）、弹窗与抽屉组件、日程与待办编辑器、卡片库、各功能页
 - 首页只调用一次 `/api/home` 聚合接口
 - TanStack Query 采用 stale-while-revalidate，并通过 `persistQueryClient` 持久化到 IndexedDB：打开页面立即渲染上次的数据，再在后台刷新
 - 所有写操作使用乐观更新，界面不等待服务端返回
@@ -840,7 +849,7 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 
 1. 构建阶段：`oven/bun` 镜像，`bun install --frozen-lockfile`，构建前端产物
 2. 运行阶段：`oven/bun:alpine`，只复制服务端代码、依赖和前端产物，最终镜像约 100MB
-3. 以非 root 用户运行，配置 `HEALTHCHECK` 访问 `/api/health`
+3. 配置 `HEALTHCHECK` 访问 `/api/health`。容器以 root 运行：NAS 上挂载的 `./data` 目录属于宿主机管理员账号，改用普通用户会导致无法写入
 
 **docker-compose.yml**
 
@@ -893,7 +902,7 @@ data/
 
 ### 13.2 HTTPS：群晖反向代理
 
-完整的图文步骤在 M5 阶段写入 `docs/DEPLOY_SYNOLOGY.md`，要点如下。
+完整步骤见 [`docs/DEPLOY_SYNOLOGY.md`](DEPLOY_SYNOLOGY.md)，要点如下。
 
 **第 1 步：域名**
 
