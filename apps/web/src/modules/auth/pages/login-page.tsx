@@ -3,12 +3,13 @@ import { Link, useLocation } from 'wouter'
 import { Button } from '@/components/button'
 import { Field, Input } from '@/components/form'
 import { errorMessage } from '@/lib/api'
-import { useLogin } from '../queries'
+import { useAuthStatus, useLogin } from '../queries'
 import { AuthLayout } from './auth-layout'
 
 export function LoginPage() {
   const [, navigate] = useLocation()
   const login = useLogin()
+  const status = useAuthStatus(true)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
 
@@ -42,6 +43,11 @@ export function LoginPage() {
         <Button type="submit" variant="primary" size="lg" loading={login.isPending}>
           登录
         </Button>
+        {status.data?.registrationOpen ? (
+          <Link to="/register" className="text-center text-sm text-accent hover:underline">
+            还没有账号？注册家庭成员
+          </Link>
+        ) : null}
         <Link to="/kiosk" className="text-center text-sm text-fg-muted hover:text-fg">
           这是一块挂墙大屏？去配对
         </Link>

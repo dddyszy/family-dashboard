@@ -51,6 +51,11 @@ export function getUser({ db }: Deps, id: string): UserRow {
 }
 
 export async function createUser(deps: Deps, input: CreateUserInput): Promise<UserRow> {
+  const passwordHash = await Bun.password.hash(input.password)
+  return insertUser(deps, input, passwordHash)
+}
+
+export function insertUser(deps: Deps, input: CreateUserInput, passwordHash: string): UserRow {
   const { db, now } = deps
   const existing = db.select().from(users).where(eq(users.username, input.username)).get()
   if (existing) throw conflict('用户名已被使用')
@@ -63,7 +68,7 @@ export async function createUser(deps: Deps, input: CreateUserInput): Promise<Us
     avatar: null,
     color: input.color ?? MEMBER_COLORS[total % MEMBER_COLORS.length] ?? '#0a84ff',
     role: input.role,
-    passwordHash: await Bun.password.hash(input.password),
+    passwordHash,
     prefs: {},
     createdAt: ts,
     updatedAt: ts,

@@ -24,6 +24,7 @@ export const householdSettingsSchema = z.object({
   weather: weatherSchema,
   darkWindow: darkWindowSchema,
   kiosk: kioskSchema,
+  allowRegistration: z.boolean(),
 })
 export type HouseholdSettings = z.infer<typeof householdSettingsSchema>
 
@@ -38,6 +39,7 @@ export const DEFAULT_HOUSEHOLD_SETTINGS: HouseholdSettings = {
     nightEnd: '06:30',
     nightMode: 'clock',
   },
+  allowRegistration: false,
 }
 
 /*
@@ -50,6 +52,7 @@ export const updateSettingsInput = z
     weather: weatherSchema.partial(),
     darkWindow: darkWindowSchema.partial(),
     kiosk: kioskSchema.partial(),
+    allowRegistration: z.boolean(),
   })
   .partial()
 export type UpdateSettingsInput = z.infer<typeof updateSettingsInput>
@@ -63,6 +66,7 @@ export function mergeSettings(
     weather: { ...base.weather, ...patch.weather },
     darkWindow: { ...base.darkWindow, ...patch.darkWindow },
     kiosk: { ...base.kiosk, ...patch.kiosk },
+    allowRegistration: patch.allowRegistration ?? base.allowRegistration,
   }
 }
 

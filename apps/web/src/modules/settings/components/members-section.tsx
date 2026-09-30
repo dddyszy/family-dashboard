@@ -2,13 +2,20 @@ import type { PublicUser } from '@shared/schemas/users'
 import { Plus, Trash2, UserCog } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { Button } from '@/components/button'
-import { Field, Input, Segmented } from '@/components/form'
+import { Field, Input, Segmented, Switch } from '@/components/form'
 import { Glass } from '@/components/glass'
 import { Avatar, Section } from '@/components/misc'
 import { ConfirmDialog, Modal } from '@/components/overlay'
 import { errorMessage } from '@/lib/api'
 import { toast } from '@/stores/ui'
-import { useCreateMember, useDeleteMember, useMembers, useUpdateMember } from '../queries'
+import {
+  useCreateMember,
+  useDeleteMember,
+  useHouseholdSettings,
+  useMembers,
+  useUpdateHousehold,
+  useUpdateMember,
+} from '../queries'
 import { ColorPicker } from './color-picker'
 
 export function MembersSection({ currentUserId }: { currentUserId: string }) {
@@ -66,6 +73,7 @@ export function MembersSection({ currentUserId }: { currentUserId: string }) {
             </li>
           ))}
         </ul>
+        <RegistrationToggle />
       </Section>
       <CreateMemberModal open={creating} onOpenChange={setCreating} />
       {editing ? <EditMemberModal member={editing} onClose={() => setEditing(null)} /> : null}
@@ -94,6 +102,32 @@ export function MembersSection({ currentUserId }: { currentUserId: string }) {
         }
       />
     </Glass>
+  )
+}
+
+function RegistrationToggle() {
+  const { allowRegistration } = useHouseholdSettings()
+  const update = useUpdateHousehold()
+  return (
+    <div className="mt-2 flex items-center justify-between gap-4 border-t border-line pt-4">
+      <div>
+        <p className="font-medium">允许自助注册</p>
+        <p className="text-sm text-fg-muted">
+          开启后，任何能打开看板的人都能在登录页注册为成员，家人注册完建议关闭
+        </p>
+      </div>
+      <Switch
+        label="允许自助注册"
+        checked={allowRegistration}
+        disabled={update.isPending}
+        onChange={(value) =>
+          update.mutate(
+            { allowRegistration: value },
+            { onError: (err) => toast.error(errorMessage(err)) },
+          )
+        }
+      />
+    </div>
   )
 }
 

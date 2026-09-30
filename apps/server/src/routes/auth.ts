@@ -2,6 +2,7 @@ import {
   type AuthStatus,
   loginInput,
   type MeResponse,
+  registerInput,
   setupInput,
   updateMeInput,
 } from '@shared/schemas/users'
@@ -20,14 +21,20 @@ import { tooManyRequests } from '../lib/errors'
 import { RateLimiter } from '../lib/rate-limit'
 import { clientKey } from '../lib/request'
 import { readJson } from '../lib/validate'
-import { login, logout, setupAdmin } from '../services/auth'
+import { login, logout, registerMember, setupAdmin } from '../services/auth'
+import { getHousehold } from '../services/settings'
 import { countUsers, toMe, updateMe } from '../services/users'
 
 const loginLimiter = new RateLimiter(10, 60_000)
+const registerLimiter = new RateLimiter(10, 60_000)
 
 export const authRoutes = new Hono<AppEnv>()
   .get('/auth/status', (c) => {
-    const status: AuthStatus = { initialized: countUsers(c.var.deps) > 0 }
+    const initialized = countUsers(c.var.deps) > 0
+    const status: AuthStatus = {
+      initialized,
+      registrationOpen: initialized && getHousehold(c.var.deps).allowRegistration,
+    }
     return c.json(status)
   })
   .post('/auth/setup', async (c) => {
@@ -44,6 +51,20 @@ export const authRoutes = new Hono<AppEnv>()
     setAuthCookie(c, SESSION_COOKIE, token, SESSION_TTL_MS)
     const body: MeResponse = { kind: 'user', user: toMe(user) }
     return c.json(body)
+  })
+  .post('/auth/register', async (c) => {
+    if (!registerLimiter.take(clientKey(c)))
+      throw tooManyRequests('注册尝试过于频繁，请 1 分钟后再试')
+    const input = await readJson(c, registerInput)
+    const { token, user } = await registerMember(
+      c.var.deps,
+      input,
+      c.req.header('user-agent') ?? null,
+    )
+    setAuthCookie(c, SESSION_COOKIE, token, SESSION_TTL_MS)
+    c.var.deps.hub.broadcast('members.changed', {}, { kind: 'family' })
+    const body: MeResponse = { kind: 'user', user: toMe(user) }
+    return c.json(body, 201)
   })
   .post('/auth/logout', (c) => {
     const token = getAuthCookie(c, SESSION_COOKIE)

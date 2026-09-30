@@ -72,13 +72,16 @@ export const setupInput = z.object({
 })
 export type SetupInput = z.infer<typeof setupInput>
 
+export const registerInput = setupInput
+export type RegisterInput = z.infer<typeof registerInput>
+
 export const loginInput = z.object({
   username: z.string().trim().min(1, '请输入用户名').toLowerCase(),
   password: z.string().min(1, '请输入密码'),
 })
 export type LoginInput = z.infer<typeof loginInput>
 
-export type AuthStatus = { initialized: boolean }
+export type AuthStatus = { initialized: boolean; registrationOpen: boolean }
 
 export type DeviceInfo = { id: string; name: string }
 
