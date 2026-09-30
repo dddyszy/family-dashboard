@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { VISIBILITIES } from '../constants'
+import { rruleProblem } from '../recurrence'
 
 export const idSchema = z.string().min(1).max(64)
 export const visibilitySchema = z.enum(VISIBILITIES)
@@ -21,3 +22,7 @@ export const rruleSchema = z
   .string()
   .max(300)
   .regex(/^FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)(;[A-Z]+=[A-Z0-9,+-]+)*$/, '重复规则格式不正确')
+  .superRefine((value, ctx) => {
+    const problem = rruleProblem(value)
+    if (problem) ctx.addIssue({ code: 'custom', message: problem })
+  })

@@ -43,6 +43,77 @@ export function stringifyRruleParts(parts: Map<string, string>): string {
     .join(';')
 }
 
+/*
+ * The rrule library loops until year 9999 when a rule can never match (e.g. 30 February) and
+ * never terminates for a negative INTERVAL, blocking the single-threaded server. Only accept the
+ * parts each frequency needs, so every accepted rule yields occurrences within a few years.
+ */
+const RRULE_KEYS: Record<string, readonly string[]> = {
+  DAILY: ['INTERVAL', 'COUNT', 'UNTIL', 'BYDAY'],
+  WEEKLY: ['INTERVAL', 'COUNT', 'UNTIL', 'BYDAY', 'WKST'],
+  MONTHLY: ['INTERVAL', 'COUNT', 'UNTIL', 'BYDAY', 'BYMONTHDAY'],
+  YEARLY: ['INTERVAL', 'COUNT', 'UNTIL', 'BYDAY', 'BYMONTHDAY', 'BYMONTH'],
+}
+const MAX_DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+/** Parses a comma list of non-zero integers whose magnitude is at most `max`. */
+function intList(value: string, max: number): number[] | null {
+  const numbers = value.split(',').map((item) => (/^[+-]?\d{1,2}$/.test(item) ? Number(item) : 0))
+  return numbers.every((n) => n !== 0 && Math.abs(n) <= max) ? numbers : null
+}
+
+/** Returns why a rule is rejected, or null when it is safe to expand. */
+export function rruleProblem(rrule: string): string | null {
+  const segments = rrule.split(';')
+  const parts = parseRruleParts(rrule)
+  if (parts.size !== segments.length) return '重复规则中有重复或无效的字段'
+  const freq = parts.get('FREQ') ?? ''
+  const allowed = RRULE_KEYS[freq]
+  if (!allowed) return '重复频率只支持每天、每周、每月、每年'
+  for (const key of parts.keys()) {
+    if (key !== 'FREQ' && !allowed.includes(key)) return `重复规则不支持 ${key}`
+  }
+  const interval = parts.get('INTERVAL')
+  if (interval !== undefined && !/^([1-9]\d?)$/.test(interval)) return '重复间隔应为 1–99'
+  const count = parts.get('COUNT')
+  if (count !== undefined && !/^\d{1,4}$/.test(count)) return '重复次数应为 1–1000'
+  if (count !== undefined && (Number(count) < 1 || Number(count) > 1000)) {
+    return '重复次数应为 1–1000'
+  }
+  const until = parts.get('UNTIL')
+  if (until !== undefined && !/^\d{8}(T\d{6}Z?)?$/.test(until)) return '重复截止时间格式不正确'
+  if (count !== undefined && until !== undefined) return '重复次数和截止时间只能设置一个'
+  const byday = parts.get('BYDAY')
+  if (byday !== undefined) {
+    const ordinalAllowed = freq === 'MONTHLY' || freq === 'YEARLY'
+    const pattern = ordinalAllowed
+      ? /^([+-]?[1-5])?(MO|TU|WE|TH|FR|SA|SU)$/
+      : /^(MO|TU|WE|TH|FR|SA|SU)$/
+    if (!byday.split(',').every((d) => pattern.test(d))) return '重复规则中的星期格式不正确'
+    if (freq === 'DAILY' && interval !== undefined && interval !== '1') {
+      return '按天间隔重复时不能再限定星期'
+    }
+  }
+  const bymonthday = parts.get('BYMONTHDAY')
+  const monthDays = bymonthday === undefined ? null : intList(bymonthday, 31)
+  if (bymonthday !== undefined && !monthDays) return '重复规则中的日期应为 1–31'
+  const bymonth = parts.get('BYMONTH')
+  const months = bymonth === undefined ? null : intList(bymonth, 12)
+  if (bymonth !== undefined && (!months || months.some((m) => m < 0))) {
+    return '重复规则中的月份应为 1–12'
+  }
+  if (monthDays) {
+    const candidates = months ?? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    const possible = candidates.some((m) =>
+      monthDays.some((d) => Math.abs(d) <= (MAX_DAYS_IN_MONTH[m - 1] ?? 0)),
+    )
+    if (!possible) return '重复规则中的日期在所选月份中不存在'
+  }
+  const wkst = parts.get('WKST')
+  if (wkst !== undefined && !/^(MO|TU|WE|TH|FR|SA|SU)$/.test(wkst)) return '一周起始日格式不正确'
+  return null
+}
+
 export function buildPresetRrule(
   preset: RecurrencePreset,
   startAt: number,
