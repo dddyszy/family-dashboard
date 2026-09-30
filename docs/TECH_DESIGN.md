@@ -200,11 +200,14 @@ family-dashboard/
     shared/                       # zod schema、类型、常量，前后端共用
   docker/
     Dockerfile
-  docker-compose.yml
+  .github/workflows/docker.yml    # 镜像自动构建
+  docker-compose.yml              # 使用预构建镜像部署
+  .env.example
   docs/
     TECH_DESIGN.md
     DEPLOY_SYNOLOGY.md            # 群晖部署指南
     DEPLOY_FNOS.md                # 飞牛 fnOS 部署指南
+    CI_IMAGE.md                   # 镜像自动构建与发布流程
     images/                       # README 截图
   AGENTS.md
   biome.json
@@ -856,21 +859,23 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 2. 运行阶段：`oven/bun:alpine`，只复制服务端代码、依赖和前端产物，最终镜像约 100MB
 3. 配置 `HEALTHCHECK` 访问 `/api/health`。容器以 root 运行：NAS 上挂载的 `./data` 目录属于宿主机管理员账号，改用普通用户会导致无法写入
 
-**docker-compose.yml**
+**镜像构建与分发**
+
+- `.github/workflows/docker.yml`：推送到 `master` 时构建 `latest`，推送 `v*` 标签时构建对应版本号；同时构建 `linux/amd64` 和 `linux/arm64`，推送到 GHCR（`ghcr.io/dddyszy/family-dashboard`），配置了阿里云 Secrets 时同时推送到阿里云容器镜像服务。详见 [`docs/CI_IMAGE.md`](CI_IMAGE.md)
+- `docker-compose.yml`：直接使用预构建镜像，镜像地址可通过 `.env` 中的 `IMAGE` 覆盖（切换到阿里云或固定版本）；NAS 上只需要这个文件和 `.env`，不在 NAS 上编译
 
 ```yaml
 services:
   app:
-    image: family-dashboard:latest
-    build: .
+    image: ${IMAGE:-ghcr.io/dddyszy/family-dashboard:latest}
     restart: unless-stopped
     ports:
       - "8686:8686"
     volumes:
       - ./data:/app/data
     environment:
-      - APP_SECRET=请替换为随机长字符串
-      - PUBLIC_URL=https://dash.example.synology.me
+      - APP_SECRET=${APP_SECRET}
+      - PUBLIC_URL=${PUBLIC_URL}
       - TZ=Asia/Shanghai
 ```
 
@@ -892,8 +897,7 @@ data/
 | `TZ` | 否 | 容器时区，默认 `Asia/Shanghai` |
 | `PORT` | 否 | 监听端口，默认 8686 |
 | `DATA_DIR` | 否 | 数据目录，默认 `/app/data` |
-| `NPM_REGISTRY` | 否 | 仅构建镜像时使用的 npm 镜像源，国内网络可设为 `https://registry.npmmirror.com` |
-
+| `IMAGE` | 否 | 镜像地址，默认 `ghcr.io/dddyszy/family-dashboard:latest`，可改为阿里云地址或固定版本 |
 变量模板见仓库根目录的 `.env.example`。
 
 天气位置等运行期可调的配置放在设置页中，存入 `settings` 表，而不是环境变量。

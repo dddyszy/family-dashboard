@@ -16,7 +16,7 @@ bun run db:generate      # 修改 schema 后生成迁移
 bun run db:migrate       # 应用迁移（服务启动时也会自动执行）
 bun run build            # 构建前端产物
 bun run preview          # 构建并以生产模式在 8686 端口预览（启用 Service Worker）
-docker compose up -d     # 本地以容器方式运行
+docker build -f docker/Dockerfile -t family-dashboard .  # 本地验证镜像能否构建；正式镜像由 GitHub Actions 构建
 ```
 
 ## 目录约定

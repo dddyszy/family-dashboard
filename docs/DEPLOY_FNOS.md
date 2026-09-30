@@ -14,50 +14,45 @@ HTTPS 是必需的：PWA 安装、离线缓存和大屏的屏幕常亮都只在 
 
 ---
 
-## 第 1 步：准备代码和配置
+## 第 1 步：准备配置文件
+
+镜像由 GitHub Actions 预先构建好（见 [镜像自动构建](CI_IMAGE.md)），NAS 上不需要源码，只需要两个文件。
 
 1. 确认已在 fnOS 中创建存储空间，并在「应用中心」安装了 **Docker**。
 2. 在「文件管理」中新建文件夹，例如 `docker/family-dashboard`。它在系统中的实际路径类似 `/vol1/1000/docker/family-dashboard`，可以在文件管理中右键文件夹 →「详细信息」查看。
-3. 把本仓库放进这个文件夹（任选一种）：
-   - **SSH**：在「系统设置」中开启 SSH，然后执行
+3. 把仓库中的 [`docker-compose.yml`](../docker-compose.yml) 和 [`.env.example`](../.env.example) 放进这个文件夹（在 GitHub 上打开文件 →「Download raw file」下载后上传即可），并把 `.env.example` 改名为 `.env`。
+   SSH 用户也可以直接下载：
 
-     ```bash
-     cd /vol1/1000/docker
-     git clone https://github.com/dddyszy/family-dashboard.git
-     ```
+   ```bash
+   cd /vol1/1000/docker/family-dashboard
+   curl -fsSLO https://raw.githubusercontent.com/dddyszy/family-dashboard/master/docker-compose.yml
+   curl -fsSL -o .env https://raw.githubusercontent.com/dddyszy/family-dashboard/master/.env.example
+   ```
 
-   - **上传**：在电脑上从 GitHub 下载仓库压缩包，解压后通过「文件管理」上传到该文件夹。
-4. 在项目文件夹中，把 `.env.example` 复制一份并改名为 `.env`，按注释填写：
+4. 编辑 `.env`，按注释填写：
 
    ```bash
    # 至少 32 位的随机字符串，可在任意电脑上执行 openssl rand -hex 32 生成
    APP_SECRET=请替换为随机字符串
-   # 第 4 步配置好的访问地址，先留空也可以
+   # 第 3 步配置好的访问地址，先留空也可以
    PUBLIC_URL=https://dash.example.com
-   # 国内网络建议打开
-   NPM_REGISTRY=https://registry.npmmirror.com
+   # 国内拉取 ghcr.io 慢时，改用阿里云镜像（地址见 CI_IMAGE.md）
+   # IMAGE=registry.cn-hangzhou.aliyuncs.com/dddyszy/family-dashboard:latest
    ```
 
-## 第 2 步：配置镜像加速（国内网络）
-
-镜像需要在 NAS 上从源码构建，构建时会下载 `oven/bun` 基础镜像和 npm 依赖。国内网络下建议：
-
-- **Docker 镜像加速**：在 Docker 应用的「设置」中配置镜像加速地址（填写你可用的加速服务地址）。
-- **npm 镜像**：即第 1 步 `.env` 中的 `NPM_REGISTRY`，设置后构建时会从该镜像源下载依赖。
-
-## 第 3 步：启动看板
+## 第 2 步：启动看板
 
 ### 方式 A：Docker 应用图形界面
 
 1. 打开 Docker 应用 →「Compose」→「新增项目」。
-2. 项目名称填 `family-dashboard`，路径选择第 1 步的项目文件夹。界面会识别到文件夹中已有的 `docker-compose.yml`，直接使用即可。
-3. 勾选「创建项目后立即启动」并确认。首次需要构建镜像，约 3 – 10 分钟，可以在项目日志中查看进度。
+2. 项目名称填 `family-dashboard`，路径选择第 1 步的文件夹。界面会识别到文件夹中的 `docker-compose.yml`，直接使用即可。
+3. 勾选「创建项目后立即启动」并确认。首次需要下载镜像（约 100MB），可以在项目日志中查看进度。
 
 ### 方式 B：SSH 命令行
 
 ```bash
 cd /vol1/1000/docker/family-dashboard
-sudo docker compose up -d --build
+sudo docker compose up -d
 sudo docker compose logs -f   # 看到「家庭看板已启动」后按 Ctrl+C 退出日志
 ```
 
@@ -69,11 +64,11 @@ sudo docker compose logs -f   # 看到「家庭看板已启动」后按 Ctrl+C �
 
 > fnOS 自己的管理页面默认使用 5666 / 5667 端口，与看板的 8686 不冲突。如果 8686 被其他容器占用，把 `docker-compose.yml` 中的 `"8686:8686"` 左边改成其他端口即可，例如 `"8690:8686"`。
 
-## 第 4 步：配置 HTTPS
+## 第 3 步：配置 HTTPS
 
 这里使用 [Nginx Proxy Manager](https://nginxproxymanager.com/)（以下简称 NPM）：它是一个带图形界面的反向代理容器，能自动申请和续期 Let's Encrypt 免费证书，与 NAS 系统无关，fnOS 社区也普遍使用。
 
-### 4.1 准备域名
+### 3.1 准备域名
 
 需要一个自己的域名（例如在阿里云、腾讯云购买，一年几十元）。添加一条 A 记录：
 
@@ -84,7 +79,7 @@ sudo docker compose logs -f   # 看到「家庭看板已启动」后按 Ctrl+C �
 
 > 把域名直接解析到内网 IP 是完全可行的做法：配合下面的 DNS 验证方式申请证书，不需要对外开放任何端口。少数路由器开启了「DNS 重绑定保护」会拦截这类解析，遇到时在路由器中把该域名加入白名单即可。
 
-### 4.2 启动 Nginx Proxy Manager
+### 3.2 启动 Nginx Proxy Manager
 
 在「文件管理」中新建文件夹 `docker/npm`，在其中创建 `docker-compose.yml`：
 
@@ -103,11 +98,11 @@ services:
       - ./letsencrypt:/etc/letsencrypt
 ```
 
-然后按第 3 步的方式 A 或方式 B 启动它（SSH 下为 `cd /vol1/1000/docker/npm && sudo docker compose up -d`）。
+然后按第 2 步的方式 A 或方式 B 启动它（SSH 下为 `cd /vol1/1000/docker/npm && sudo docker compose up -d`）。
 
 浏览器打开 `http://NAS的IP:81` 进入 NPM 管理界面，按提示设置管理员邮箱和密码。
 
-### 4.3 申请证书
+### 3.3 申请证书
 
 NPM 管理界面 →「SSL Certificates」→「Add SSL Certificate」→「Let's Encrypt」：
 
@@ -117,7 +112,7 @@ NPM 管理界面 →「SSL Certificates」→「Add SSL Certificate」→「Let'
 
 DNS 验证方式通过服务商接口证明域名归你所有，所以即使域名解析到内网 IP、NAS 没有开放任何端口，也能拿到正式证书，并且会自动续期。
 
-### 4.4 添加反向代理
+### 3.4 添加反向代理
 
 「Hosts」→「Proxy Hosts」→「Add Proxy Host」：
 
@@ -128,7 +123,7 @@ DNS 验证方式通过服务商接口证明域名归你所有，所以即使域�
   - Forward Port：`8686`
   - 勾选「Block Common Exploits」和「Websockets Support」
 - **SSL** 页
-  - SSL Certificate：选择 4.3 申请的证书
+  - SSL Certificate：选择 3.3 申请的证书
   - 勾选「Force SSL」和「HTTP/2 Support」
 - **Advanced** 页，在 Custom Nginx Configuration 中填入：
 
@@ -144,7 +139,7 @@ DNS 验证方式通过服务商接口证明域名归你所有，所以即使域�
 - Docker 应用：在项目中点「重启」
 - SSH：`cd /vol1/1000/docker/family-dashboard && sudo docker compose up -d`
 
-## 第 5 步：初始化与添加设备
+## 第 4 步：初始化与添加设备
 
 1. 用 `https://dash.example.com` 打开，创建管理员账号。
 2. 「设置」→「家庭」：添加家庭成员，设置天气城市。
@@ -176,25 +171,25 @@ DNS 验证方式通过服务商接口证明域名归你所有，所以即使域�
 
   ```bash
   cd /vol1/1000/docker/family-dashboard
-  git pull
-  sudo docker compose up -d --build
+  sudo docker compose pull
+  sudo docker compose up -d
   ```
 
-  启动时如果有数据库结构变更，会先自动备份一次再升级。用图形界面的话，更新代码后在 Docker 应用的项目中点「构建」再「启动」。
+  启动时如果有数据库结构变更，会先自动备份一次再升级。用图形界面的话，在 Docker 应用的项目中先「拉取」再「重新启动」。想固定在某个版本，把 `.env` 中的 `IMAGE` 写成带版本号的地址（见 [镜像自动构建](CI_IMAGE.md)）。
 
 ## 常见问题
 
-**构建时卡在拉取 `oven/bun` 镜像**
-Docker Hub 在国内访问不稳定，请按第 2 步配置 Docker 镜像加速后重试。
+**拉取镜像很慢或失败**
+国内访问 `ghcr.io` 不稳定。在 `.env` 中把 `IMAGE` 改为阿里云镜像地址后重新执行 `sudo docker compose pull`（阿里云镜像的配置见 [镜像自动构建](CI_IMAGE.md)）。
 
-**构建时卡在 `bun install`**
-在 `.env` 中设置 `NPM_REGISTRY=https://registry.npmmirror.com` 后重新构建。
+**提示 `denied` 或无权限拉取镜像**
+GHCR 上的镜像还没有设为公开，按 [镜像自动构建](CI_IMAGE.md) 中「把 GHCR 镜像设为公开」操作一次即可。
 
 **NPM 启动失败，提示 80 或 443 端口被占用**
 说明 NAS 上已有其他服务占用了这两个端口。可以停掉占用的服务，或者把 NPM 的端口映射改为 `"8443:443"` 等，访问地址相应变为 `https://dash.example.com:8443`（`PUBLIC_URL` 也要带上端口）。
 
 **购物清单不能实时同步 / 页面提示「正在重新连接」**
-检查 4.4 中是否勾选了「Websockets Support」，以及 Advanced 页的两行配置是否已保存。
+检查 3.4 中是否勾选了「Websockets Support」，以及 Advanced 页的两行配置是否已保存。
 
 **登录后刷新又回到登录页**
 确认 `.env` 中的 `PUBLIC_URL` 与浏览器地址栏中的地址完全一致（包括 `https://` 和端口），修改后需要重启看板容器。

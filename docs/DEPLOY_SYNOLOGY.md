@@ -12,31 +12,28 @@ HTTPS 是必需的：PWA 安装、离线缓存和大屏的屏幕常亮都只在 
 
 ---
 
-## 第 1 步：准备代码和配置
+## 第 1 步：准备配置文件
+
+镜像由 GitHub Actions 预先构建好（见 [镜像自动构建](CI_IMAGE.md)），NAS 上不需要源码，只需要两个文件。
 
 1. 在 DSM「套件中心」安装 **Container Manager**。
 2. 在「File Station」中新建文件夹，例如 `/docker/family-dashboard`。
-3. 把本仓库放进这个文件夹（任选一种）：
-   - 在 NAS 上通过 SSH 执行 `git clone https://github.com/dddyszy/family-dashboard.git /volume1/docker/family-dashboard`
-   - 或者在电脑上下载仓库压缩包，解压后上传到该文件夹
-4. 把项目中的 `.env.example` 复制一份并改名为 `.env`，按注释填写：
+3. 把仓库中的 [`docker-compose.yml`](../docker-compose.yml) 和 [`.env.example`](../.env.example) 上传到这个文件夹（在 GitHub 上打开文件 →「Download raw file」下载），并把 `.env.example` 改名为 `.env`。
+4. 编辑 `.env`，按注释填写：
 
    ```bash
    # 至少 32 位的随机字符串。可以在任意电脑上执行 openssl rand -hex 32 生成
    APP_SECRET=请替换为随机字符串
    # 第 3 步配置好的访问地址
    PUBLIC_URL=https://dash.你的名字.synology.me
-   # 国内网络构建镜像慢时打开
-   NPM_REGISTRY=https://registry.npmmirror.com
+   # 国内拉取 ghcr.io 慢时，改用阿里云镜像（地址见 CI_IMAGE.md）
+   # IMAGE=registry.cn-hangzhou.aliyuncs.com/dddyszy/family-dashboard:latest
    ```
-
-   国内网络下，还建议在 Container Manager 的「注册表」→「设置」中配置 Docker 镜像加速，否则拉取 `oven/bun` 基础镜像可能失败。
-
 ## 第 2 步：启动容器
 
 1. 打开 Container Manager →「项目」→「新增」。
 2. 项目名称填 `family-dashboard`，路径选择第 1 步的文件夹，来源选择「使用现有的 docker-compose.yml」。
-3. 点击「下一步」直到完成，Container Manager 会自动构建镜像并启动容器，首次构建约需几分钟。
+3. 点击「下一步」直到完成，Container Manager 会下载镜像（约 100MB）并启动容器。
 4. 在浏览器访问 `http://NAS的IP:8686`，能看到「欢迎使用家庭看板」即表示启动成功。先不要创建账号，完成 HTTPS 配置后再用正式地址访问。
 
 数据全部保存在项目文件夹下的 `data/` 目录中：`app.db` 是数据库，`uploads/` 是头像和壁纸，`backups/` 是自动备份。
@@ -112,9 +109,15 @@ HTTPS 是必需的：PWA 安装、离线缓存和大屏的屏幕常亮都只在 
 
 - 每天凌晨 2 点自动备份数据库到 `data/backups/`，保留最近 7 份；「设置」→「数据」中可以手动备份和下载。
 - 建议在 Hyper Backup 中把 `docker/family-dashboard/data` 加入备份任务。
-- 升级：在 NAS 上进入项目文件夹执行 `git pull`，然后在 Container Manager 中对该项目点「构建」并重新启动。启动时如果有数据库结构变更，会先自动备份一次再升级。
+- 升级：SSH 进入项目文件夹执行 `sudo docker compose pull && sudo docker compose up -d`。也可以在 Container Manager 的「映像」中更新 `family-dashboard` 映像后重启项目（不同 DSM 版本的按钮名称略有差异）。启动时如果有数据库结构变更，会先自动备份一次再升级。想固定在某个版本，把 `.env` 中的 `IMAGE` 写成带版本号的地址（见 [镜像自动构建](CI_IMAGE.md)）。
 
 ## 常见问题
+
+**拉取镜像很慢或失败**
+国内访问 `ghcr.io` 不稳定。在 `.env` 中把 `IMAGE` 改为阿里云镜像地址后重新启动项目（阿里云镜像的配置见 [镜像自动构建](CI_IMAGE.md)）。
+
+**提示 `denied` 或无权限拉取镜像**
+GHCR 上的镜像还没有设为公开，按 [镜像自动构建](CI_IMAGE.md) 中「把 GHCR 镜像设为公开」操作一次即可。
 
 **购物清单不能实时同步 / 页面提示「正在重新连接」**
 检查第 4 步中的「代理读取超时」是否已调大，以及是否添加了 WebSocket 自定义标头。

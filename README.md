@@ -30,22 +30,23 @@
 - 后端：[Bun](https://bun.sh) + [Hono](https://hono.dev) + SQLite（[Drizzle ORM](https://orm.drizzle.team)），单进程、单数据库文件，不依赖 Redis 等外部服务
 - 前端：React 19 + Vite + Tailwind CSS v4 + TanStack Query + wouter，首屏 JS 约 138KB（gzip）
 - 实时：SSE（Server-Sent Events）
-- 部署：单个 Docker 容器，NAS 反向代理提供 HTTPS
+- 部署：单个 Docker 容器，GitHub Actions 自动构建多架构镜像（GHCR / 阿里云），NAS 反向代理提供 HTTPS
 
 详细设计见 [技术设计文档](docs/TECH_DESIGN.md)。
 
 ## 部署
 
-需要一台能运行 Docker 的 NAS 或 Linux 主机。
+需要一台能运行 Docker 的 NAS 或 Linux 主机。镜像由 GitHub Actions 自动构建（支持 x86 和 ARM），服务器上只需要两个配置文件：
 
 ```bash
-git clone https://github.com/dddyszy/family-dashboard.git
-cd family-dashboard
-cp .env.example .env   # 填写 APP_SECRET（openssl rand -hex 32 生成）
-docker compose up -d --build
+mkdir family-dashboard && cd family-dashboard
+curl -fsSLO https://raw.githubusercontent.com/dddyszy/family-dashboard/master/docker-compose.yml
+curl -fsSL -o .env https://raw.githubusercontent.com/dddyszy/family-dashboard/master/.env.example
+# 编辑 .env，填写 APP_SECRET（openssl rand -hex 32 生成）
+docker compose up -d
 ```
 
-启动后访问 `http://服务器IP:8686`。正式使用需要配置 HTTPS（PWA、离线缓存和大屏常亮都依赖它），按你的 NAS 选择对应文档：
+启动后访问 `http://服务器IP:8686`。升级只需 `docker compose pull && docker compose up -d`。国内拉取慢时可以改用阿里云镜像，见 [镜像自动构建](docs/CI_IMAGE.md)。正式使用需要配置 HTTPS（PWA、离线缓存和大屏常亮都依赖它），按你的 NAS 选择对应文档：
 
 - [群晖 Synology 部署指南](docs/DEPLOY_SYNOLOGY.md)（使用 DSM 自带的反向代理和证书）
 - [飞牛 fnOS 部署指南](docs/DEPLOY_FNOS.md)（使用 Nginx Proxy Manager，其他 Linux / NAS 也可参考）
@@ -75,6 +76,7 @@ apps/
 packages/
   shared/     前后端共用的 zod schema、类型、时区与重复规则工具
 docker/       Dockerfile
+.github/      镜像自动构建工作流
 docs/         技术设计、部署指南、截图
 ```
 
