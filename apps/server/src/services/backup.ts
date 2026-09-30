@@ -9,7 +9,7 @@ import { badRequest, notFound } from '../lib/errors'
 import { getTimeZone } from './settings'
 
 const KEEP = 7
-const NAME_PATTERN = /^app-\d{8}-\d{6}\.db$/
+const NAME_PATTERN = /^app-\d{8}-\d{6}(?:-\d+)?\.db$/
 
 export type BackupFile = { name: string; size: number; createdAt: number }
 
@@ -27,17 +27,25 @@ export function listBackups(dir = env.backupsDir): BackupFile[] {
       const stat = statSync(join(dir, name))
       return { name, size: stat.size, createdAt: stat.mtimeMs }
     })
-    .sort((a, b) => b.createdAt - a.createdAt)
+    .sort(
+      (a, b) => b.createdAt - a.createdAt || b.name.localeCompare(a.name, 'en', { numeric: true }),
+    )
 }
 
 /** Writes a consistent snapshot with VACUUM INTO (safe while the app keeps running) and prunes old ones. */
 export function runBackup(deps: Deps, dir = env.backupsDir): BackupFile {
   mkdirSync(dir, { recursive: true })
-  const name = backupName(deps.now(), getTimeZone(deps))
+  const baseName = backupName(deps.now(), getTimeZone(deps))
+  let name = baseName
+  let suffix = 1
+  // Multiple writes or a reset can happen within one second; each backup needs a fresh snapshot.
+  while (existsSync(join(dir, name))) name = baseName.replace('.db', `-${suffix++}.db`)
   const path = join(dir, name)
-  // VACUUM INTO refuses to overwrite; a backup taken in the same second is already current.
-  if (!existsSync(path)) deps.db.run(sql.raw(`VACUUM INTO '${path.replaceAll("'", "''")}'`))
-  for (const old of listBackups(dir).slice(KEEP)) unlinkSync(join(dir, old.name))
+  deps.db.run(sql.raw(`VACUUM INTO '${path.replaceAll("'", "''")}'`))
+  for (const old of listBackups(dir)
+    .filter((file) => file.name !== name)
+    .slice(KEEP - 1))
+    unlinkSync(join(dir, old.name))
   const stat = statSync(path)
   return { name, size: stat.size, createdAt: stat.mtimeMs }
 }
