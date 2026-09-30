@@ -11,6 +11,7 @@ import { useCurrentUser } from '@/modules/auth/queries'
 import { useTimeZone } from '@/modules/settings/queries'
 import { toast, useUi } from '@/stores/ui'
 import { parseWidgetConfig, type WidgetDefinition } from '@/widgets/registry'
+import { createWidgetId } from '@/widgets/widget-id'
 import { DashboardGrid } from '../components/dashboard-grid'
 import { useDashboard, useHome, useSaveDashboard } from '../queries'
 
@@ -75,7 +76,7 @@ export function HomePage() {
   }
 
   const addWidget = (definition: WidgetDefinition) => {
-    const id = crypto.randomUUID()
+    const id = createWidgetId()
     setDraft((d) =>
       d
         ? {

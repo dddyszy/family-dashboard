@@ -4,6 +4,7 @@ import { Segmented } from '@/components/form'
 import { PageHeader } from '@/components/misc'
 import { useCurrentUser, useLogout } from '@/modules/auth/queries'
 import { AppearanceSection } from '../components/appearance-section'
+import { ConnectionSection } from '../components/connection-section'
 import { DataSection } from '../components/data-section'
 import { DevicesSection } from '../components/devices-section'
 import { HouseholdSection } from '../components/household-section'
@@ -45,7 +46,12 @@ export function SettingsPage() {
       <div className="mb-5 overflow-x-auto scrollbar-none">
         <Segmented value={tab} onChange={setTab} options={tabs} />
       </div>
-      {tab === 'profile' ? <ProfileSection user={user} /> : null}
+      {tab === 'profile' ? (
+        <div className="flex flex-col gap-5">
+          <ProfileSection user={user} />
+          <ConnectionSection />
+        </div>
+      ) : null}
       {tab === 'appearance' ? <AppearanceSection user={user} /> : null}
       {tab === 'family' && isAdmin ? (
         <div className="flex flex-col gap-5">

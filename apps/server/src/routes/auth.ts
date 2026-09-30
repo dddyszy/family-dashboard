@@ -6,10 +6,10 @@ import {
   updateMeInput,
 } from '@shared/schemas/users'
 import { Hono } from 'hono'
-import { getCookie } from 'hono/cookie'
 import {
   clearAuthCookie,
   DEVICE_COOKIE,
+  getAuthCookie,
   requireUser,
   SESSION_COOKIE,
   SESSION_TTL_MS,
@@ -46,7 +46,7 @@ export const authRoutes = new Hono<AppEnv>()
     return c.json(body)
   })
   .post('/auth/logout', (c) => {
-    const token = getCookie(c, SESSION_COOKIE)
+    const token = getAuthCookie(c, SESSION_COOKIE)
     if (token) logout(c.var.deps, token)
     clearAuthCookie(c, SESSION_COOKIE)
     clearAuthCookie(c, DEVICE_COOKIE)

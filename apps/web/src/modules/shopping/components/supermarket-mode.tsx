@@ -3,6 +3,7 @@ import { Check, X } from 'lucide-react'
 import { useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Glass } from '@/components/glass'
+import { WakeLockNotice } from '@/components/wake-lock-notice'
 import { cn } from '@/lib/cn'
 import { useWakeLock } from '@/lib/wake-lock'
 import { useItems, useUpdateItem } from '../queries'
@@ -11,7 +12,7 @@ import { groupByCategory } from './list-view'
 
 /** Full-screen, large-type checklist for use while walking the aisles. Keeps the screen awake. */
 export function SupermarketMode({ list, onClose }: { list: ShoppingList; onClose: () => void }) {
-  useWakeLock(true)
+  const wakeLockStatus = useWakeLock(true)
   const { data: items = [] } = useItems(list.id)
   const update = useUpdateItem()
 
@@ -42,6 +43,7 @@ export function SupermarketMode({ list, onClose }: { list: ShoppingList; onClose
           </button>
         </header>
         <div className="safe-bottom flex-1 overflow-y-auto px-4 pb-8">
+          <WakeLockNotice status={wakeLockStatus} />
           {groups.map(([category, groupItems]) => (
             <section key={category} className="mb-5">
               <h3 className="mb-2 px-1 text-sm font-semibold text-fg-muted">{category}</h3>
