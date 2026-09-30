@@ -1,5 +1,7 @@
 # 家庭看板 Family Dashboard
 
+当前版本：**v0.2.0**。功能变更和升级说明见 [更新日志](CHANGELOG.md)。
+
 部署在家用 NAS 或小服务器上、全家共用的信息大屏：可拖拽的小卡片首页、家庭日程与提醒、实时同步的购物清单，液态玻璃（Liquid Glass）风格，手机、平板、电脑和挂墙大屏共用一套页面。
 
 ![首页](docs/images/home-light.jpg)
@@ -45,7 +47,7 @@
 ```bash
 mkdir family-dashboard && cd family-dashboard
 mkdir data
-curl -fsSLO https://raw.githubusercontent.com/dddyszy/family-dashboard/master/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/dddyszy/family-dashboard/v0.2.0/docker-compose.yml
 # 编辑 docker-compose.yml，在 environment 中填写 APP_SECRET（openssl rand -hex 32 生成）
 # PUBLIC_URL 保持为空
 docker compose config --quiet
@@ -53,7 +55,7 @@ docker compose pull app
 docker compose up -d
 ```
 
-启动后访问 `http://服务器内网IP:8686`。升级前先按部署指南备份，再拉取镜像并重建容器。切换镜像源或固定版本时直接修改 Compose 的 `image`；镜像需已实际发布，见 [镜像自动构建](docs/CI_IMAGE.md)。仅推送 `dev` 不会自动更新 `latest`。
+启动后访问 `http://服务器内网IP:8686`。升级前先按部署指南备份，再拉取镜像并重建容器。默认固定到 `ghcr.io/dddyszy/family-dashboard:v0.2.0`，升级版本或切换镜像源时直接修改 Compose 的 `image`；镜像需已实际发布，见 [镜像自动构建](docs/CI_IMAGE.md)。只有推送 `v*` 标签才会构建镜像；推送 `master` 或 `dev` 都不会构建。
 
 IP 直连支持登录、日程、购物、卡片编辑和实时同步。自动常亮及离线重新打开受访问环境限制，具体表现和系统设置建议见统一部署指南。
 
@@ -88,7 +90,7 @@ docs/         技术设计、部署指南、截图
 
 ## 路线图
 
-第一期（当前版本）已完成上面列出的功能。第二期计划：
+第一期（v0.2.0）已完成上面列出的功能。第二期计划：
 
 - 手机推送（ntfy / Web Push）、每日日程摘要、免打扰时段
 - 会员订阅：各网站和 App 的会员有效期、到期提醒、花销统计
@@ -100,3 +102,4 @@ docs/         技术设计、部署指南、截图
 
 - `master`：稳定版本
 - `dev`：日常开发，功能完成并验证后合并到 `master`
+- `v*` 标签：从稳定提交发布镜像；当前版本为 `v0.2.0`。合并或推送分支本身不会构建镜像

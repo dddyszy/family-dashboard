@@ -99,6 +99,7 @@ docker build -f docker/Dockerfile -t family-dashboard .  # 本地验证镜像能
 - 遵循 Conventional Commits：`feat:`、`fix:`、`refactor:`、`style:`、`test:`、`docs:`、`chore:`
 - 作用域用模块名，例如 `feat(shopping): support batch paste`
 - 一次提交只做一件事
+- 发布以 `v主版本.次版本.修订号` Git 标签为准；仅推送 `v*` 标签触发镜像构建，推送分支不构建。先在 `dev` 同步更新 README、`docs/` 下所有指南、`CHANGELOG.md` 和 Compose 默认镜像版本，通过检查后合入 `master`，再打标签发布。完整流程见 [`docs/CI_IMAGE.md`](docs/CI_IMAGE.md)
 
 ## 完成定义
 
