@@ -1,18 +1,47 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { browserCapabilities } from './browser-capabilities'
 
-/** Keeps the screen on while `enabled`. The browser drops the lock whenever the page is hidden. */
-export function useWakeLock(enabled: boolean): void {
+export type WakeLockStatus =
+  | 'inactive'
+  | 'requesting'
+  | 'active'
+  | 'released'
+  | 'denied'
+  | 'https-required'
+  | 'unsupported'
+
+/** The browser releases the lock when the page is hidden or power saving takes priority. */
+export function useWakeLock(enabled: boolean): WakeLockStatus {
+  const availability = browserCapabilities().wakeLock
+  const [status, setStatus] = useState<WakeLockStatus>('inactive')
+
   useEffect(() => {
-    if (!enabled || !('wakeLock' in navigator)) return
+    if (!enabled || availability !== 'available') return
     let sentinel: WakeLockSentinel | null = null
     let disposed = false
+    let requesting = false
     const request = async () => {
+      if (requesting || (sentinel && !sentinel.released)) return
+      if (document.visibilityState !== 'visible') {
+        setStatus('released')
+        return
+      }
+      requesting = true
+      setStatus('requesting')
       try {
         const lock = await navigator.wakeLock.request('screen')
-        if (disposed) void lock.release()
-        else sentinel = lock
+        if (disposed) void lock.release().catch(() => {})
+        else {
+          sentinel = lock
+          setStatus(lock.released ? 'released' : 'active')
+          lock.addEventListener('release', () => {
+            if (!disposed) setStatus('released')
+          })
+        }
       } catch {
-        // Denied (e.g. insecure context or battery saver); nothing else to do.
+        if (!disposed) setStatus('denied')
+      } finally {
+        requesting = false
       }
     }
     const onVisibility = () => {
@@ -23,7 +52,10 @@ export function useWakeLock(enabled: boolean): void {
     return () => {
       disposed = true
       document.removeEventListener('visibilitychange', onVisibility)
-      void sentinel?.release()
+      void sentinel?.release().catch(() => {})
     }
-  }, [enabled])
+  }, [enabled, availability])
+
+  if (!enabled) return 'inactive'
+  return availability === 'available' ? status : availability
 }

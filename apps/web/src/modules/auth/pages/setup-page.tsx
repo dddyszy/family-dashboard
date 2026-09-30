@@ -29,7 +29,10 @@ export function SetupPage() {
     setForm((f) => ({ ...f, [key]: e.target.value }))
 
   return (
-    <AuthLayout title="欢迎使用家庭看板" subtitle="先创建一个管理员账号，之后可以添加其他家庭成员">
+    <AuthLayout
+      title="欢迎使用家庭看板"
+      subtitle="先创建管理员账号，之后可以添加家庭成员或开放自助注册"
+    >
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <Field label="你的名字" hint="例如：爸爸、妈妈">
           <Input value={form.name} onChange={update('name')} required maxLength={32} />

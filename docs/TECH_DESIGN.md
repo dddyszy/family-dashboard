@@ -18,7 +18,7 @@
 10. [大屏模式与 PWA](#10-大屏模式与-pwa)
 11. [性能策略](#11-性能策略)
 12. [认证与权限](#12-认证与权限)
-13. [部署与 HTTPS](#13-部署与-https)
+13. [Docker Compose 部署](#13-docker-compose-部署)
 14. [里程碑](#14-里程碑)
 15. [工程规范](#15-工程规范)
 16. [附录：第二期模块设计要点](#16-附录第二期模块设计要点)
@@ -56,7 +56,7 @@
 - 页面内提醒（弹窗 + 提示音）
 - 大屏模式（Kiosk）
 - PWA
-- HTTPS（通过 NAS 自带的反向代理）
+- Docker Compose 部署，通过 HTTP 内网地址访问
 - Docker 部署与备份
 
 **第二期（延后）**
@@ -72,7 +72,7 @@
 - **`reminders` 表与调度器**：第一期已经按时间生成并触发提醒，第二期只需在「触发」后面接上推送渠道
 - **`/api/home` 聚合接口**：每个模块注册自己的汇总函数，新增模块只是多注册一个函数
 
-第一期就上 HTTPS，是因为 Service Worker、PWA 安装和屏幕常亮（Wake Lock）都依赖安全上下文；第二期的 Web Push 也能直接复用。开发时使用 `localhost`，浏览器同样视为安全上下文，不需要证书。
+基础功能支持 HTTP 内网访问。Service Worker、完整 PWA 安装和屏幕常亮（Wake Lock）依赖安全上下文及浏览器支持，采用渐进增强：不可用时给出提示，不阻断业务操作。开发时 `localhost` 被浏览器视为安全上下文，不能据此判断普通内网 IP 下的能力。
 
 ---
 
@@ -111,7 +111,6 @@ flowchart LR
         Phone["手机 PWA"]
         PC["电脑浏览器"]
     end
-    Proxy["NAS 反向代理 HTTPS"]
     subgraph container [单个 Docker 容器]
         Static["静态资源 React SPA"]
         Api["Hono REST API"]
@@ -122,10 +121,9 @@ flowchart LR
     Weather["Open-Meteo 天气"]
     PushLater["推送渠道 第二期"]
 
-    clients -->|"HTTPS 443"| Proxy
-    Proxy -->|"HTTP 8686"| Static
-    Proxy --> Api
-    Sse --> Proxy
+    clients -->|"HTTP 8686"| Static
+    clients --> Api
+    Sse --> clients
     Api --> Db
     Api --> Sse
     Cron --> Db
@@ -135,7 +133,7 @@ flowchart LR
 ```
 
 - 同一个 Bun 进程同时提供静态资源、REST API、SSE 和定时任务
-- 容器只暴露一个端口（默认 8686），TLS 由 NAS 反向代理终止
+- 容器只暴露一个端口（默认 8686），客户端通过宿主机映射端口访问
 - 所有外部数据（天气，第二期的 Token 用量）都由服务端拉取并缓存，前端永远只读本地数据，不会被第三方接口拖慢
 
 ### 3.1 一次典型请求
@@ -202,11 +200,10 @@ family-dashboard/
     Dockerfile
   .github/workflows/docker.yml    # 镜像自动构建
   docker-compose.yml              # 使用预构建镜像部署
-  .env.example
   docs/
     TECH_DESIGN.md
-    DEPLOY_SYNOLOGY.md            # 群晖部署指南
-    DEPLOY_FNOS.md                # 飞牛 fnOS 部署指南
+    DEPLOY_DOCKER_COMPOSE.md      # 统一的 Docker Compose 部署指南
+    DEPLOY_HTTPS.md               # 可选 HTTPS 配置指南
     CI_IMAGE.md                   # 镜像自动构建与发布流程
     images/                       # README 截图
   AGENTS.md
@@ -279,6 +276,7 @@ modules/<name>/
 
 - 字段：标题、地点、备注、全天或时段、开始时间、结束时间、参与成员（多选）、可见性（私有/家庭）、颜色、提醒偏移
 - 重复：提供常用预设（每天、工作日、每周、每两周、每月、每年），也支持自定义 RRULE
+- 自定义 RRULE 只接受白名单字段（共用包 `rruleProblem` 校验）：频率限于每天/每周/每月/每年，`INTERVAL` 1–99、`COUNT` 1–1000，`UNTIL` 与 `COUNT` 二选一；`BYDAY` 只在每月/每年规则中允许序号（如 `-1FR`）；`BYMONTHDAY` 仅用于每月/每年、`BYMONTH` 仅用于每年，且日期必须在所选月份中存在；不支持 `BYSETPOS`、`BYHOUR` 等字段，按天间隔大于 1 时不能再限定星期。rrule 库遇到永远不匹配或负间隔的规则会长时间阻塞单线程进程，因此必须在入参阶段拒绝；服务端每次展开最多返回 2000 个实例
 - 修改重复事件时询问范围：
   - **只改这一次**：生成一条覆盖事件，`parent_id` 指向原事件，`recurrence_id` 记录被替换的那次原定开始时间；原事件对应日期加入 `exdates`
   - **改这次及以后**：把原事件的 RRULE 在该日期前截断（设置 `UNTIL`），从该日期起新建一个重复事件
@@ -501,8 +499,9 @@ stateDiagram-v2
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/auth/status` | 是否已完成初始化（有无管理员） |
+| GET | `/auth/status` | `{ initialized, registrationOpen }`：是否已有管理员、是否开放自助注册 |
 | POST | `/auth/setup` | 创建第一个管理员，仅在无用户时可用 |
+| POST | `/auth/register` | 管理员开启自助注册后注册普通成员；请求体 `{ username, name, password }`，成功返回 `201` 和 `MeResponse`，写入会话 Cookie；未开放时返回 `403` |
 | POST | `/auth/login` | 用户名密码登录，写入会话 Cookie |
 | POST | `/auth/logout` | 退出 |
 | GET | `/me` | 当前用户或当前设备 |
@@ -518,7 +517,7 @@ stateDiagram-v2
 | POST | `/devices/pairing-code` | 生成配对码（管理员） |
 | POST | `/devices/pair` | 大屏用配对码换取设备令牌 |
 | DELETE | `/devices/:id` | 吊销设备（管理员） |
-| GET / PATCH | `/settings` | 家庭级设置（修改需管理员） |
+| GET / PATCH | `/settings` | 家庭级设置（修改需管理员）；PATCH 为部分更新，未传的字段（含嵌套对象内的字段）保持原值；`allowRegistration` 控制自助注册，默认关闭 |
 
 **日程与待办**
 
@@ -599,8 +598,11 @@ data: {"listId":"...","item":{...}}
 - 稳定性：
   - 每 20 秒发送一次心跳注释行（`: ping`），防止反向代理和 Bun 的空闲超时断开连接
   - `Bun.serve` 的 `idleTimeout` 默认只有 10 秒，需要调大到 120 秒
-  - 响应头加 `Cache-Control: no-cache` 与 `X-Accel-Buffering: no`，防止 nginx（群晖反向代理底层就是 nginx）缓冲
+  - 响应头加 `Cache-Control: no-cache` 与 `X-Accel-Buffering: no`，防止 中间层缓冲
   - 前端断线由 `EventSource` 自动重连；重连成功后让所有查询失效并补拉一次，保证不漏数据
+- 身份绑定：
+  - 连接的可见范围在建立时按当前用户或设备确定。服务端每次心跳前重新校验会话或设备 Cookie，身份失效（退出、过期、改密）或变化即关闭连接；删除用户、重置其密码、撤销设备时立即关闭对应连接
+  - 前端按当前身份（用户 ID 或设备 ID）建立连接：身份变为未登录或切换为其他账号时先断开再重连，避免下一位使用者继承上一位的私有推送
 
 ### 8.2 页面内提醒
 
@@ -715,7 +717,7 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 **配对与登录**
 
 1. 管理员在「设置 → 大屏设备」中点击「添加设备」，得到一个 6 位配对码（5 分钟有效）
-2. 平板打开 `https://<域名>/kiosk`，输入配对码
+2. 平板打开 `http://服务器内网IP:8686/kiosk`，输入配对码
 3. 服务端下发长期有效的设备令牌（HttpOnly Cookie），设备只能以只读身份查看大屏
 4. 管理员可以随时吊销设备
 
@@ -817,14 +819,21 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 **账号与会话**
 
 - 用户名 + 密码登录，密码使用 `Bun.password`（argon2id）哈希
-- 登录成功后生成随机令牌，数据库只存其 SHA-256 哈希；令牌写入 HttpOnly、`Secure`、`SameSite=Lax` 的 Cookie
+- 登录成功后生成随机令牌，数据库只存其 SHA-256 哈希；令牌写入 HttpOnly、`SameSite=Lax` 的 Cookie，`Secure` 属性按当前访问协议设置
 - 会话有效期 30 天，使用期间自动续期
-- 登录接口限流：同一 IP 每分钟最多 10 次
+- 登录和注册分别限流：同一客户端每分钟各最多 10 次。客户端按 TCP 对端地址识别；只有对端地址在 `TRUSTED_PROXIES`（默认仅本机回环地址）中时，才读取 `X-Forwarded-For` 中最靠近服务端的非可信地址或 `X-Real-IP`。直连时客户端可以任意伪造这些头，信任它们会让攻击者绕过限流或把全家锁在外面
 
 **初始化**
 
 - 首次访问时没有任何用户，页面引导创建第一个管理员（`/auth/setup`）；此后该接口关闭
-- 之后由管理员在设置中创建其他成员
+- 自助注册默认关闭，由管理员在「设置 → 家庭 → 家庭成员」中开关（家庭设置 `allowRegistration`）。默认部署是局域网 IP 直连，开放注册意味着任何能访问看板的人都能成为成员并读取家庭共享数据，因此建议家人注册完成后关闭
+- 开放期间，登录页显示「注册家庭成员」入口（`/register`），填写名字、用户名、密码和确认密码，注册成功后自动登录并进入首页；未开放时隐藏入口，直接访问注册页显示联系管理员的提示，接口返回 `403`，且在哈希密码之前拒绝。管理员始终可在设置中创建成员或调整角色
+- `/auth/register` 仅接收共用 schema 定义的用户名、名字和密码，服务端固定写入 `member`；客户端附带 `role: admin` 不会获得管理员权限。普通成员不能通过个人资料接口自行提升角色
+- 未初始化时注册接口返回 `409`，注册失败返回 `403`/`409` 时前端刷新初始化状态，未初始化则跳转到 `/setup`；初始化后访问 `/setup` 跳转到 `/login`，已登录用户访问登录、注册或初始化页则回到首页，大屏设备回到 `/kiosk`
+- 用户名去除首尾空白并转为小写，重名返回 `409`；输入校验失败返回 `400`，超出注册限流返回 `429`，均使用统一中文错误响应
+- 密码哈希完成后，在同步数据库事务中重新检查初始化状态、创建账号并签发会话；并发初始化仅一个管理员创建成功，同名并发注册仅一个成功，其余返回冲突
+- 注册成功广播 `members.changed`，其他设备刷新成员列表；注册接口归入现有 `/api/auth/*` 的 Service Worker 不缓存规则。注册页面按需加载，沿用认证成功后清空客户端缓存的流程
+- 注册成功即加入当前家庭，可访问家庭共享数据；私有数据继续按现有可见性规则过滤。当前没有邀请码或审批步骤，准入只靠管理员开关
 
 **角色**
 
@@ -845,122 +854,25 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 
 **CSRF**
 
-- Cookie 使用 `SameSite=Lax`，同时所有写接口校验 `Origin` 头必须与 `PUBLIC_URL` 一致
+- Cookie 使用 `HttpOnly` 和 `SameSite=Lax`。写接口在携带 `Origin` 时，要求与当前请求的外部协议、Host（含端口）一致，或匹配配置的 `PUBLIC_URL` 来源；其他来源拒绝。反向代理需覆盖并传递正确的转发头。
 
 ---
 
-## 13. 部署与 HTTPS
+## 13. Docker Compose 部署
 
-### 13.1 Docker
+完整操作步骤统一维护在 [Docker Compose 部署指南](DEPLOY_DOCKER_COMPOSE.md)，仓库根目录的 [docker-compose.yml](../docker-compose.yml) 为配置入口。技术设计不再重复维护平台专用安装步骤。
 
-**Dockerfile（多阶段）**
+可选 HTTPS 入口的证书、反向代理、双协议会话及验收要求统一维护在 [HTTPS 配置指南](DEPLOY_HTTPS.md)。看板进程继续提供 HTTP，由外部代理终止 TLS。
 
-1. 构建阶段：`oven/bun` 镜像，`bun install --frozen-lockfile`，构建前端产物
-2. 运行阶段：`oven/bun:alpine`，只复制服务端代码、依赖和前端产物，最终镜像约 100MB
-3. 配置 `HEALTHCHECK` 访问 `/api/health`。容器以 root 运行：NAS 上挂载的 `./data` 目录属于宿主机管理员账号，改用普通用户会导致无法写入
-
-**镜像构建与分发**
-
-- `.github/workflows/docker.yml`：推送到 `master` 时构建 `latest`，推送 `v*` 标签时构建对应版本号；同时构建 `linux/amd64` 和 `linux/arm64`，推送到 GHCR（`ghcr.io/dddyszy/family-dashboard`），配置了阿里云 Secrets 时同时推送到阿里云容器镜像服务。详见 [`docs/CI_IMAGE.md`](CI_IMAGE.md)
-- `docker-compose.yml`：直接使用预构建镜像，镜像地址可通过 `.env` 中的 `IMAGE` 覆盖（切换到阿里云或固定版本）；NAS 上只需要这个文件和 `.env`，不在 NAS 上编译
-
-```yaml
-services:
-  app:
-    image: ${IMAGE:-ghcr.io/dddyszy/family-dashboard:latest}
-    restart: unless-stopped
-    ports:
-      - "8686:8686"
-    volumes:
-      - ./data:/app/data
-    environment:
-      - APP_SECRET=${APP_SECRET}
-      - PUBLIC_URL=${PUBLIC_URL}
-      - TZ=Asia/Shanghai
-```
-
-**数据目录 `./data`**
-
-```
-data/
-  app.db            # SQLite 主库（以及 -wal、-shm 文件）
-  uploads/          # 头像、壁纸
-  backups/          # 自动备份
-```
-
-**环境变量**
-
-| 变量 | 必填 | 说明 |
-| --- | --- | --- |
-| `APP_SECRET` | 是 | 用于签名和加密，至少 32 位随机字符串 |
-| `PUBLIC_URL` | 是 | 对外的 HTTPS 地址，用于 Cookie 的 Secure 标记、CSRF 校验和 manifest |
-| `TZ` | 否 | 容器时区，默认 `Asia/Shanghai` |
-| `PORT` | 否 | 监听端口，默认 8686 |
-| `DATA_DIR` | 否 | 数据目录，默认 `/app/data` |
-| `IMAGE` | 否 | 镜像地址，默认 `ghcr.io/dddyszy/family-dashboard:latest`，可改为阿里云地址或固定版本 |
-变量模板见仓库根目录的 `.env.example`。
-
-天气位置等运行期可调的配置放在设置页中，存入 `settings` 表，而不是环境变量。
-
-**备份**
-
-- 每天凌晨 2 点执行 `VACUUM INTO 'backups/app-YYYYMMDD.db'`，生成一致性快照，保留最近 7 份
-- 设置页支持「立即备份」「下载备份」和「导出 JSON」
-- 建议把 `data/backups` 纳入群晖 Hyper Backup 的备份任务
-
-**升级**
-
-- `docker compose pull && docker compose up -d`；服务启动时自动执行未应用的数据库迁移，迁移前先自动备份一次
-
-### 13.2 HTTPS：群晖反向代理
-
-完整步骤见 [`docs/DEPLOY_SYNOLOGY.md`](DEPLOY_SYNOLOGY.md)；飞牛 fnOS 及其他没有自带反向代理的 NAS 见 [`docs/DEPLOY_FNOS.md`](DEPLOY_FNOS.md)（使用 Nginx Proxy Manager）。群晖的要点如下。
-
-**第 1 步：域名**
-
-- 推荐使用群晖免费的 DDNS 域名：「控制面板 → 外部访问 → DDNS」，服务商选 Synology，得到 `xxx.synology.me`
-- 有自己的域名也可以，把一个子域名（例如 `dash.example.com`）解析到家中
-
-**第 2 步：证书**
-
-- 「控制面板 → 安全性 → 证书 → 新增 → 从 Let's Encrypt 获取证书」
-- 使用 `synology.me` 域名时 DSM 7 可一键申请；使用自己的域名时，推荐用 DNS 验证方式（例如在 NAS 上运行 acme.sh）申请，无需对外开放 80 端口
-
-**第 3 步：反向代理**
-
-- 「控制面板 → 登录门户 → 高级 → 反向代理服务器 → 新增」
-  - 来源：协议 `HTTPS`，主机名 `dash.xxx.synology.me`，端口 `443`，建议启用 HTTP/2
-  - 目标：协议 `HTTP`，主机名 `localhost`，端口 `8686`
-- 在「证书 → 设置」中，为这条反向代理规则指定第 2 步申请的证书
-
-**第 4 步：只在家里用（可选）**
-
-- 如果不打算开放外网访问，在路由器上把该域名解析到 NAS 的内网 IP（路由器的「DNS 重写」「静态 DNS」或自建 DNS 功能），证书照样有效
-- 路由器不支持时，可以把域名解析到公网 IP，并确认路由器支持 NAT 回流
-
-**SSE 在反向代理下的注意事项**
-
-- 服务端已在 SSE 响应中加入 `X-Accel-Buffering: no` 和 `Cache-Control: no-cache`，避免 nginx 缓冲导致消息延迟
-- 服务端每 20 秒发送心跳，避免反向代理的默认 60 秒超时断开连接
-- 如果仍然出现频繁断线，在反向代理规则的「高级设置」中把读取超时调大到 300 秒
-
-**服务端对反向代理的处理**
-
-- 信任来自本机的 `X-Forwarded-Proto` / `X-Forwarded-For`，用于判断 HTTPS 和记录客户端 IP
-- Cookie 启用 `Secure`；写接口校验 `Origin` 与 `PUBLIC_URL` 一致
-
-**威联通（QNAP）**
-
-- 对应入口为「控制台 → 网络和文件服务 → 网络访问 → 反向代理」，证书在「控制台 → 安全 → SSL 证书和私钥」；不同 QTS 版本的入口名称可能略有差异
-
-**部署自检清单**
-
-- [ ] 浏览器地址栏显示锁标志，证书域名正确
-- [ ] Chrome DevTools 的 Application 面板中，manifest 无报错、Service Worker 状态为 activated
-- [ ] 手机上可以「添加到主屏幕」或「安装应用」，打开后没有地址栏
-- [ ] 两台设备同时打开同一个购物清单，一边勾选，另一边 1 秒内同步
-- [ ] 大屏放置 10 分钟不熄屏
-- [ ] 创建一个 2 分钟后的日程提醒，到点时大屏弹窗并响铃
+- 单个容器运行 Bun 服务、React 静态资源、SQLite 和定时任务，默认通过 `http://服务器内网IP:8686` 访问。
+- 使用已发布镜像；工作流发布目标为 `linux/amd64` 和 `linux/arm64`。`master` 构建发布 `latest`，仅推送 `dev` 不发布该标签。发布规则见 [镜像自动构建](CI_IMAGE.md)。
+- Compose 的 `environment` 直接填写配置，不依赖额外环境变量文件。生产环境要求 `APP_SECRET` 至少 32 个字符；IP 直连时 `PUBLIC_URL` 留空。经反向代理访问时，把代理连到看板时的来源地址填入 `TRUSTED_PROXIES`（逗号分隔的精确 IP），限流才能区分真实客户端；不填时所有经代理的请求共用一个限流桶。
+- `./data:/app/data` 保存数据库、上传文件及数据库快照；镜像以 root 运行以适配 NAS 本地目录权限。数据使用本地文件系统，不让多个运行实例共享同一数据库。
+- 镜像自带 `/api/health` 健康检查。修改环境变量、挂载、端口或镜像后需要用 `docker compose up -d` 重建，普通重启不应用这些配置变更。
+- 程序按启动时读取的家庭时区，每天 02:00 生成一致性数据库快照，保留最近 7 份。手动和迁移前快照同样计入保留数量，完整备份还需保存上传文件与 Compose 配置。
+- 首次启动自动迁移；已有数据库且存在待执行迁移时先备份数据库。升级前仍应完成外部备份并记录镜像版本，回退时恢复配套数据库。
+- 前端新增卡片使用 `crypto.getRandomValues()` 生成 UUIDv4，ID 同时用于卡片实例和布局项，支持普通 HTTP 访问。
+- 浏览器增强功能按 `window.isSecureContext` 与 API 可用性检测；设置页显示能力及离线准备状态，大屏与超市模式提示常亮不可用的原因，不影响基础业务功能。
 
 ---
 
@@ -975,7 +887,7 @@ data/
 | M2 | 购物清单、SSE 实时同步、购物卡片 | 两台设备实时同步；常买联想可用；首页卡片可直接勾选 |
 | M3 | 日程（四种视图、重复规则、参与成员）、待办、快捷录入、日程卡片 | 重复事件三种修改范围正确；快捷录入覆盖常见句式；相关单元测试齐全 |
 | M4 | 提醒调度、页面内提醒弹窗与提示音 | 到点 1 分钟内弹窗；稍后提醒可用；离线期间的提醒在重新打开后补齐 |
-| M5 | 大屏模式（配对、Wake Lock、夜间模式）、完善 PWA 缓存与更新提示、Docker 发布、群晖部署文档、备份 | 部署自检清单全部通过；大屏连续运行 7 天无异常 |
+| M5 | 大屏模式（配对、Wake Lock、夜间模式）、完善 PWA 缓存与更新提示、Docker 发布、Docker Compose 部署文档、备份 | 部署自检清单全部通过；大屏连续运行 7 天无异常 |
 
 先做购物清单（M2）再做日程（M3），是因为购物清单链路最短，能尽早验证 SSE 实时同步和卡片框架这两块基础设施。
 
@@ -983,7 +895,7 @@ data/
 
 | 里程碑 | 内容 |
 | --- | --- |
-| M6 | 手机推送（ntfy / Web Push，直接复用第一期的 HTTPS 与 Service Worker）、每日摘要、免打扰 |
+| M6 | 手机推送（ntfy / Web Push，直接复用第一期的 Service Worker）、每日摘要、免打扰 |
 | M7 | 会员订阅模块及卡片 |
 | M8 | Token 用量适配器、快照、趋势卡片 |
 | M9 | 跨模块聚合卡片（会员总花销、Token 总用量） |

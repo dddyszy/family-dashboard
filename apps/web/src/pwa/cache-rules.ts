@@ -13,6 +13,7 @@ export const runtimeCaching: RuntimeCaching = [
     urlPattern: ({ url }) =>
       url.pathname === '/api/stream' ||
       url.pathname === '/api/me' ||
+      // Includes registration and session creation; auth responses must never be cached.
       url.pathname.startsWith('/api/auth/') ||
       url.pathname.startsWith('/api/backups') ||
       url.pathname === '/api/export',

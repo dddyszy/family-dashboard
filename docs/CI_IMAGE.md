@@ -50,12 +50,12 @@
 
 配置好后，下一次构建会同时推送到 `registry.cn-hangzhou.aliyuncs.com/dddyszy/family-dashboard`。也可以在「Actions」页面选择「Docker image」→「Run workflow」手动触发一次。
 
-### 3. NAS 上使用阿里云镜像
+### 3. 选择已发布的镜像源
 
-在 NAS 的 `.env` 中加一行：
+确认上述镜像已成功发布后，在 `docker-compose.yml` 中修改 `services.app.image`（下方仅展示该字段，保留其余配置）：
 
-```bash
-IMAGE=registry.cn-hangzhou.aliyuncs.com/dddyszy/family-dashboard:latest
+```yaml
+    image: registry.cn-hangzhou.aliyuncs.com/dddyszy/family-dashboard:latest
 ```
 
 ## 发布流程
@@ -71,11 +71,4 @@ git tag v0.1.0
 git push origin v0.1.0          # 构建 0.1.0 和 0.1
 ```
 
-NAS 上升级：
-
-```bash
-docker compose pull
-docker compose up -d
-```
-
-想固定在某个版本、不自动跟随 `latest`，把 `.env` 中的 `IMAGE` 写成带版本号的地址，例如 `ghcr.io/dddyszy/family-dashboard:0.1.0`。
+部署、升级、固定镜像版本及回退步骤统一见 [Docker Compose 部署指南](DEPLOY_DOCKER_COMPOSE.md)。版本标签必须已实际发布；仅推送 `dev` 不会自动发布 `latest` 或 `dev` 镜像。

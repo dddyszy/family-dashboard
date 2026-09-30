@@ -11,6 +11,7 @@ import { RealtimeBridge } from '@/app/realtime-bridge'
 import { StatusBar } from '@/app/status-bar'
 import { Button } from '@/components/button'
 import { Field, Input } from '@/components/form'
+import { WakeLockNotice } from '@/components/wake-lock-notice'
 import { errorMessage } from '@/lib/api'
 import { lunarDate } from '@/lib/lunar'
 import { unlockSound, useSoundState } from '@/lib/sound'
@@ -116,7 +117,7 @@ function KioskDashboard({ isDevice }: { isDevice: boolean }) {
     perf: false,
     refraction: false,
   }))
-  useWakeLock(!night)
+  const wakeLockStatus = useWakeLock(!night)
 
   // A long-running page slowly accumulates memory; reload once a night, which also applies updates.
   useEffect(() => {
@@ -157,6 +158,7 @@ function KioskDashboard({ isDevice }: { isDevice: boolean }) {
           ) : null}
         </div>
       </header>
+      <WakeLockNotice status={wakeLockStatus} />
       {dashboard.data ? (
         <DashboardGrid
           layouts={dashboard.data.layouts}

@@ -1,10 +1,11 @@
-import type { LoginInput, SetupInput } from '@shared/schemas/users'
+import type { LoginInput, RegisterInput, SetupInput } from '@shared/schemas/users'
 import { eq, lt } from 'drizzle-orm'
 import { sessions, users } from '../db/schema'
 import type { Deps, UserRow } from '../lib/context'
 import { newId, randomToken, sha256 } from '../lib/crypto'
-import { badRequest, conflict } from '../lib/errors'
-import { countUsers, createUser } from './users'
+import { badRequest, conflict, forbidden } from '../lib/errors'
+import { getHousehold } from './settings'
+import { countUsers, insertUser } from './users'
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 const RENEW_AFTER_MS = 24 * 60 * 60 * 1000
@@ -34,9 +35,39 @@ export async function setupAdmin(
   input: SetupInput,
   userAgent: string | null,
 ): Promise<IssuedSession> {
-  if (countUsers(deps) > 0) throw conflict('系统已经初始化')
-  const user = await createUser(deps, { ...input, role: 'admin' })
-  return issueSession(deps, user, userAgent)
+  return createAccount(deps, input, 'admin', userAgent)
+}
+
+export async function registerMember(
+  deps: Deps,
+  input: RegisterInput,
+  userAgent: string | null,
+): Promise<IssuedSession> {
+  return createAccount(deps, input, 'member', userAgent)
+}
+
+async function createAccount(
+  deps: Deps,
+  input: RegisterInput,
+  role: UserRow['role'],
+  userAgent: string | null,
+): Promise<IssuedSession> {
+  const assertAllowed = () => {
+    const initialized = countUsers(deps) > 0
+    if (role === 'admin' && initialized) throw conflict('系统已经初始化')
+    if (role === 'member' && !initialized) throw conflict('请先创建管理员账号')
+    if (role === 'member' && !getHousehold(deps).allowRegistration) {
+      throw forbidden('管理员未开放自助注册，请联系管理员为你添加账号')
+    }
+  }
+  assertAllowed()
+  const passwordHash = await Bun.password.hash(input.password)
+  return deps.db.transaction(() => {
+    // Hashing yields to other requests; recheck initialization before inserting any account.
+    assertAllowed()
+    const user = insertUser(deps, { ...input, role }, passwordHash)
+    return issueSession(deps, user, userAgent)
+  })
 }
 
 export async function login(

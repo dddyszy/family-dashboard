@@ -11,6 +11,9 @@ export type Recurring = {
 
 export type Occurrence = { occurrenceAt: number; startAt: number; endAt: number }
 
+/** Upper bound per expansion; accepted rules yield at most one occurrence a day. */
+const MAX_OCCURRENCES = 2000
+
 function overlaps(startAt: number, endAt: number, from: number, to: number): boolean {
   if (startAt >= to) return false
   if (endAt === startAt) return startAt >= from
@@ -45,7 +48,7 @@ export function expandOccurrences(
   const windowEnd = toWallClockDate(to, timeZone)
   const excluded = new Set(event.exdates)
   const result: Occurrence[] = []
-  for (const date of rule.between(windowStart, windowEnd, true)) {
+  for (const date of rule.between(windowStart, windowEnd, true, (_, i) => i < MAX_OCCURRENCES)) {
     const occurrenceAt = fromWallClockDate(date, timeZone)
     if (excluded.has(occurrenceAt)) continue
     const endAt = occurrenceAt + duration

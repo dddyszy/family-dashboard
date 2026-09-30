@@ -55,7 +55,7 @@ describe('admin reset', () => {
   test('factory reset removes everything and returns to first-run setup', async () => {
     const { admin, mom } = await setupFamily()
     expect((await admin.post('/admin/reset', reset('factory'))).status).toBe(200)
-    expect((await admin.get('/auth/status')).json).toEqual({ initialized: false })
+    expect((await admin.get('/auth/status')).json).toMatchObject({ initialized: false })
     expect((await admin.get('/me')).json).toEqual({ kind: 'anonymous' })
     expect((await mom.get('/me')).json).toEqual({ kind: 'anonymous' })
     const setup = await admin.post('/auth/setup', {

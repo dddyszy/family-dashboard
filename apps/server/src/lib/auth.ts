@@ -14,12 +14,23 @@ export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 export const DEVICE_TTL_MS = 400 * 24 * 60 * 60 * 1000
 
 function isSecure(c: Context): boolean {
-  if (env.publicUrl.startsWith('https://')) return true
-  return c.req.header('x-forwarded-proto') === 'https'
+  return new URL(c.req.url).protocol === 'https:' || c.req.header('x-forwarded-proto') === 'https'
 }
 
-export function setAuthCookie(c: Context, name: string, token: string, ttlMs: number): void {
-  setCookie(c, name, token, {
+type AuthCookie = typeof SESSION_COOKIE | typeof DEVICE_COOKIE
+
+function authCookieName(c: Context, name: AuthCookie): string {
+  // Separate names let the same host serve HTTP and HTTPS without overwriting a Secure cookie.
+  return isSecure(c) ? `__Secure-${name}` : `${name}_http`
+}
+
+export function getAuthCookie(c: Context, name: AuthCookie): string | undefined {
+  return getCookie(c, authCookieName(c, name)) ?? getCookie(c, name)
+}
+
+export function setAuthCookie(c: Context, name: AuthCookie, token: string, ttlMs: number): void {
+  if (getCookie(c, name)) deleteCookie(c, name, { path: '/', secure: isSecure(c) })
+  setCookie(c, authCookieName(c, name), token, {
     httpOnly: true,
     secure: isSecure(c),
     sameSite: 'Lax',
@@ -28,26 +39,35 @@ export function setAuthCookie(c: Context, name: string, token: string, ttlMs: nu
   })
 }
 
-export function clearAuthCookie(c: Context, name: string): void {
+export function clearAuthCookie(c: Context, name: AuthCookie): void {
+  deleteCookie(c, authCookieName(c, name), { path: '/', secure: isSecure(c) })
   deleteCookie(c, name, { path: '/', secure: isSecure(c) })
 }
 
-export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
+/** Resolves the session or device cookie; SSE streams call it again to notice revocation. */
+export function resolveActor(c: Context<AppEnv>): Actor | null {
   const { deps } = c.var
-  let actor: Actor | null = null
-  const sessionToken = getCookie(c, SESSION_COOKIE)
+  const sessionToken = getAuthCookie(c, SESSION_COOKIE)
   if (sessionToken) {
     const user = resolveSession(deps, sessionToken)
-    if (user) actor = { kind: 'user', user }
+    if (user) return { kind: 'user', user }
   }
-  if (!actor) {
-    const deviceToken = getCookie(c, DEVICE_COOKIE)
-    if (deviceToken) {
-      const device = resolveDevice(deps, deviceToken)
-      if (device) actor = { kind: 'device', device }
-    }
+  const deviceToken = getAuthCookie(c, DEVICE_COOKIE)
+  if (deviceToken) {
+    const device = resolveDevice(deps, deviceToken)
+    if (device) return { kind: 'device', device }
   }
-  c.set('actor', actor)
+  return null
+}
+
+export function isSameActor(a: Actor | null, b: Actor): boolean {
+  if (a?.kind === 'user' && b.kind === 'user') return a.user.id === b.user.id
+  if (a?.kind === 'device' && b.kind === 'device') return a.device.id === b.device.id
+  return false
+}
+
+export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
+  c.set('actor', resolveActor(c))
   await next()
 }
 
@@ -66,7 +86,7 @@ function isAllowedOrigin(c: Context, origin: string): boolean {
   const host = c.req.header('x-forwarded-host') ?? c.req.header('host')
   if (!host) return false
   try {
-    return new URL(origin).host === host
+    return origin === new URL(`${isSecure(c) ? 'https' : 'http'}://${host}`).origin
   } catch {
     return false
   }

@@ -5,16 +5,34 @@ export type Audience = { kind: 'family' } | { kind: 'users'; userIds: readonly s
 
 type Send = (event: string, data: string) => void
 
-type Client = { id: number; viewer: Viewer; send: Send }
+type Client = { id: number; viewer: Viewer; deviceId: string | null; send: Send; close: () => void }
+
+export type StreamOptions = { deviceId?: string | null; close?: () => void }
+
+export type DisconnectTarget = { userId: string } | { deviceId: string }
 
 export class RealtimeHub {
   private clients = new Map<number, Client>()
   private nextId = 1
 
-  add(viewer: Viewer, send: Send): () => void {
+  add(viewer: Viewer, send: Send, options: StreamOptions = {}): () => void {
     const id = this.nextId++
-    this.clients.set(id, { id, viewer, send })
+    const { deviceId = null, close = () => {} } = options
+    this.clients.set(id, { id, viewer, deviceId, send, close })
     return () => this.clients.delete(id)
+  }
+
+  /** Ends the streams of a deleted user or revoked device right away. */
+  disconnect(target: DisconnectTarget): void {
+    for (const client of [...this.clients.values()]) {
+      const hit =
+        'userId' in target
+          ? client.viewer.kind === 'user' && client.viewer.userId === target.userId
+          : client.deviceId === target.deviceId
+      if (!hit) continue
+      this.clients.delete(client.id)
+      client.close()
+    }
   }
 
   get size(): number {

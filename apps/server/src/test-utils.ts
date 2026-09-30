@@ -36,18 +36,25 @@ export async function seedUser(
 }
 
 /** Minimal cookie-aware client around `app.request`, one per simulated browser. */
-export function createClient(deps: Deps) {
+export function createClient(
+  deps: Deps,
+  defaultHeaders: Record<string, string> = {},
+  options: { ip?: string } = {},
+) {
   const app = createApp(deps, { reset: { backupDir: null, uploadsDir: null } })
+  const { ip } = options
+  // Stands in for the Bun server so rate limiting sees a socket address.
+  const server = ip ? { requestIP: () => ({ address: ip }) } : undefined
   const cookies = new Map<string, string>()
   async function request(method: string, path: string, body?: unknown) {
-    const headers: Record<string, string> = {}
+    const headers: Record<string, string> = { ...defaultHeaders }
     if (body !== undefined) headers['content-type'] = 'application/json'
     if (cookies.size) headers.cookie = [...cookies].map(([k, v]) => `${k}=${v}`).join('; ')
-    const res = await app.request(`/api${path}`, {
-      method,
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
+    const res = await app.request(
+      `/api${path}`,
+      { method, headers, body: body === undefined ? undefined : JSON.stringify(body) },
+      server,
+    )
     for (const line of res.headers.getSetCookie()) {
       const [pair = ''] = line.split(';')
       const [name = '', value = ''] = pair.split('=')

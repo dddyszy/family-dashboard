@@ -1,10 +1,14 @@
 import { lazy, Suspense } from 'react'
 import { Redirect, Route, Switch } from 'wouter'
+import { AuthGate } from '@/modules/auth/components/auth-gate'
 import { LoginPage } from '@/modules/auth/pages/login-page'
 import { SetupPage } from '@/modules/auth/pages/setup-page'
 import { HomePage } from '@/modules/home/pages/home-page'
 import { AppShell, FullScreenSpinner } from './app-shell'
 
+const RegisterPage = lazy(() =>
+  import('@/modules/auth/pages/register-page').then((m) => ({ default: m.RegisterPage })),
+)
 const CalendarPage = lazy(() =>
   import('@/modules/calendar/pages/calendar-page').then((m) => ({ default: m.CalendarPage })),
 )
@@ -21,8 +25,23 @@ const KioskPage = lazy(() =>
 export function AppRoutes() {
   return (
     <Switch>
-      <Route path="/login" component={LoginPage} />
-      <Route path="/setup" component={SetupPage} />
+      <Route path="/login">
+        <AuthGate mode="sign-in">
+          <LoginPage />
+        </AuthGate>
+      </Route>
+      <Route path="/setup">
+        <AuthGate mode="setup">
+          <SetupPage />
+        </AuthGate>
+      </Route>
+      <Route path="/register">
+        <AuthGate mode="sign-in">
+          <Suspense fallback={<FullScreenSpinner />}>
+            <RegisterPage />
+          </Suspense>
+        </AuthGate>
+      </Route>
       <Route path="/kiosk">
         <Suspense fallback={<FullScreenSpinner />}>
           <KioskPage />
