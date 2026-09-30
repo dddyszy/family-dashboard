@@ -5,7 +5,7 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { navigateFallbackDenylist, runtimeCaching } from './src/pwa/cache-rules.ts'
 
-const backend = 'http://localhost:8080'
+const backend = 'http://localhost:8686'
 
 export default defineConfig({
   plugins: [
@@ -69,7 +69,8 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 5288,
+    strictPort: true,
     proxy: {
       '/api': { target: backend },
       '/uploads': { target: backend },

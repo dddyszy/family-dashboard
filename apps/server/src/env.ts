@@ -14,7 +14,7 @@ function readSecret(): string {
 
 export const env = {
   isProd,
-  port: Number(process.env.PORT ?? 8080),
+  port: Number(process.env.PORT ?? 8686),
   dataDir,
   dbPath: join(dataDir, 'app.db'),
   uploadsDir: join(dataDir, 'uploads'),

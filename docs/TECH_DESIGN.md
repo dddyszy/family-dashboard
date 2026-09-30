@@ -123,7 +123,7 @@ flowchart LR
     PushLater["推送渠道 第二期"]
 
     clients -->|"HTTPS 443"| Proxy
-    Proxy -->|"HTTP 8080"| Static
+    Proxy -->|"HTTP 8686"| Static
     Proxy --> Api
     Sse --> Proxy
     Api --> Db
@@ -135,7 +135,7 @@ flowchart LR
 ```
 
 - 同一个 Bun 进程同时提供静态资源、REST API、SSE 和定时任务
-- 容器只暴露一个端口（默认 8080），TLS 由 NAS 反向代理终止
+- 容器只暴露一个端口（默认 8686），TLS 由 NAS 反向代理终止
 - 所有外部数据（天气，第二期的 Token 用量）都由服务端拉取并缓存，前端永远只读本地数据，不会被第三方接口拖慢
 
 ### 3.1 一次典型请求
@@ -860,7 +860,7 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8686:8686"
     volumes:
       - ./data:/app/data
     environment:
@@ -885,7 +885,7 @@ data/
 | `APP_SECRET` | 是 | 用于签名和加密，至少 32 位随机字符串 |
 | `PUBLIC_URL` | 是 | 对外的 HTTPS 地址，用于 Cookie 的 Secure 标记、CSRF 校验和 manifest |
 | `TZ` | 否 | 容器时区，默认 `Asia/Shanghai` |
-| `PORT` | 否 | 监听端口，默认 8080 |
+| `PORT` | 否 | 监听端口，默认 8686 |
 | `DATA_DIR` | 否 | 数据目录，默认 `/app/data` |
 
 天气位置等运行期可调的配置放在设置页中，存入 `settings` 表，而不是环境变量。
@@ -918,7 +918,7 @@ data/
 
 - 「控制面板 → 登录门户 → 高级 → 反向代理服务器 → 新增」
   - 来源：协议 `HTTPS`，主机名 `dash.xxx.synology.me`，端口 `443`，建议启用 HTTP/2
-  - 目标：协议 `HTTP`，主机名 `localhost`，端口 `8080`
+  - 目标：协议 `HTTP`，主机名 `localhost`，端口 `8686`
 - 在「证书 → 设置」中，为这条反向代理规则指定第 2 步申请的证书
 
 **第 4 步：只在家里用（可选）**

@@ -16,7 +16,7 @@ FROM oven/bun:1-alpine AS runtime
 WORKDIR /app
 RUN apk add --no-cache tzdata
 ENV NODE_ENV=production \
-    PORT=8080 \
+    PORT=8686 \
     DATA_DIR=/app/data \
     TZ=Asia/Shanghai
 COPY package.json bun.lock ./
@@ -31,8 +31,8 @@ COPY tsconfig.base.json ./
 COPY --from=build /app/apps/web/dist apps/web/dist
 # Runs as root on purpose: NAS bind mounts are owned by the host admin, not uid 1000.
 RUN mkdir -p /app/data
-EXPOSE 8080
+EXPOSE 8686
 VOLUME ["/app/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:8080/api/health > /dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:8686/api/health > /dev/null || exit 1
 CMD ["bun", "apps/server/src/index.ts"]
