@@ -15,11 +15,15 @@ import {
 import { useNow } from '@/lib/use-now'
 import { useHomeSlice } from '@/modules/home/queries'
 import { useMemberMap, useTimeZone } from '@/modules/settings/queries'
+import { FitList } from '@/widgets/fit-list'
 import { useReadOnly } from '@/widgets/read-only'
 import { type ConfigEditorProps, registerWidget, type WidgetProps } from '@/widgets/registry'
 import { WidgetHeader } from '@/widgets/widget-frame'
 import { TodoRow } from '../components/todo-list'
 import { eventColor, eventMembers, eventsOnDay } from '../lib'
+
+/** Upper bound on rendered rows; FitList then shows as many as the card height allows. */
+const MAX_ROWS = 40
 
 function useCalendarHome() {
   return useHomeSlice((d) => d.calendar).data
@@ -74,22 +78,18 @@ function TodayWidget({ size }: WidgetProps) {
       </div>
     )
   }
-  const limit = size === 'M' ? 3 : 8
   return (
     <div className="flex h-full flex-col gap-3 p-4">
       <WidgetHeader icon={CalendarDays} title="今日日程" trailing={`${today.length} 项`} />
       {today.length === 0 ? (
         <p className="m-auto text-sm text-fg-muted">今天没有安排</p>
       ) : (
-        <ul className="flex flex-1 flex-col gap-2 overflow-hidden">
-          {today.slice(0, limit).map((e) => (
+        <FitList className="gap-y-2">
+          {today.slice(0, MAX_ROWS).map((e) => (
             <MiniEvent key={e.key} event={e} now={now} />
           ))}
-        </ul>
+        </FitList>
       )}
-      {today.length > limit ? (
-        <p className="text-xs text-fg-muted">还有 {today.length - limit} 项</p>
-      ) : null}
     </div>
   )
 }
@@ -97,7 +97,7 @@ function TodayWidget({ size }: WidgetProps) {
 const upcomingConfig = z.object({ days: z.number().int().min(1).max(14).default(7) })
 type UpcomingConfig = z.infer<typeof upcomingConfig>
 
-function UpcomingWidget({ size, config }: WidgetProps<UpcomingConfig>) {
+function UpcomingWidget({ config }: WidgetProps<UpcomingConfig>) {
   const calendar = useCalendarHome()
   const timeZone = useTimeZone()
   const now = useNow()
@@ -105,34 +105,23 @@ function UpcomingWidget({ size, config }: WidgetProps<UpcomingConfig>) {
   const days = Array.from({ length: config.days }, (_, i) => addZonedDays(start, i, timeZone))
     .map((day) => ({ day, events: eventsOnDay(calendar?.instances ?? [], day, timeZone) }))
     .filter((d) => d.events.length > 0)
-  const limit = size === 'M' ? 3 : size === 'L' ? 9 : 16
-  let shown = 0
+  // Day headings and events are flattened into one list so FitList can cut between any two rows.
+  const rows = days
+    .flatMap(({ day, events }) => [
+      <li key={`day-${day}`} className="pt-1 text-xs font-semibold text-fg-muted first:pt-0">
+        {relativeDayLabel(day, now, timeZone)} · {formatMonthDay(day, timeZone)}
+      </li>,
+      ...events.map((e) => <MiniEvent key={e.key} event={e} now={now} />),
+    ])
+    .slice(0, MAX_ROWS)
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
+    <div className="flex h-full flex-col gap-3 p-4">
       <WidgetHeader icon={CalendarRange} title={`未来 ${config.days} 天`} />
       {days.length === 0 ? (
         <p className="m-auto text-sm text-fg-muted">近期没有安排</p>
       ) : (
-        <div className="flex flex-col gap-2.5">
-          {days.map(({ day, events }) => {
-            if (shown >= limit) return null
-            const visible = events.slice(0, limit - shown)
-            shown += visible.length
-            return (
-              <section key={day}>
-                <p className="mb-1 text-xs font-semibold text-fg-muted">
-                  {relativeDayLabel(day, now, timeZone)} · {formatMonthDay(day, timeZone)}
-                </p>
-                <ul className="flex flex-col gap-1.5">
-                  {visible.map((e) => (
-                    <MiniEvent key={e.key} event={e} now={now} />
-                  ))}
-                </ul>
-              </section>
-            )
-          })}
-        </div>
+        <FitList className="gap-y-1.5">{rows}</FitList>
       )}
     </div>
   )
@@ -149,11 +138,11 @@ function MembersWidget({ size }: WidgetProps) {
   return (
     <div className="flex h-full flex-col gap-3 p-4">
       <WidgetHeader icon={Users} title="家人今日安排" />
-      <div className="grid min-h-0 flex-1 auto-rows-min gap-3">
+      <FitList className="gap-y-3">
         {members.map((m) => {
           const mine = today.filter((e) => eventMembers(e).includes(m.id))
           return (
-            <div key={m.id} className="flex gap-2.5">
+            <li key={m.id} className="flex gap-2.5">
               <Avatar user={m} size={28} />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{m.name}</p>
@@ -179,10 +168,10 @@ function MembersWidget({ size }: WidgetProps) {
                   </ul>
                 )}
               </div>
-            </div>
+            </li>
           )
         })}
-      </div>
+      </FitList>
     </div>
   )
 }
@@ -216,26 +205,22 @@ function NextWidget() {
   )
 }
 
-function TodosWidget({ size }: WidgetProps) {
+function TodosWidget() {
   const calendar = useCalendarHome()
   const readOnly = useReadOnly()
   const todos = calendar?.todos ?? []
-  const limit = size === 'M' ? 3 : size === 'L' ? 8 : 14
   return (
     <div className="flex h-full flex-col gap-2 p-4">
       <WidgetHeader icon={ListTodo} title="待办" trailing={`${todos.length} 项`} />
       {todos.length === 0 ? (
         <p className="m-auto text-sm text-fg-muted">没有待办</p>
       ) : (
-        <ul className="flex flex-col">
-          {todos.slice(0, limit).map((t) => (
+        <FitList>
+          {todos.slice(0, MAX_ROWS).map((t) => (
             <TodoRow key={t.id} todo={t} readOnly={readOnly} compact />
           ))}
-        </ul>
+        </FitList>
       )}
-      {todos.length > limit ? (
-        <p className="text-xs text-fg-muted">还有 {todos.length - limit} 项</p>
-      ) : null}
     </div>
   )
 }

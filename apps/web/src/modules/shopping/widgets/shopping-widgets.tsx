@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { Field, Select } from '@/components/form'
 import { cn } from '@/lib/cn'
 import { useHomeSlice } from '@/modules/home/queries'
+import { FitList } from '@/widgets/fit-list'
 import { useReadOnly } from '@/widgets/read-only'
 import { type ConfigEditorProps, registerWidget, type WidgetProps } from '@/widgets/registry'
 import { WidgetHeader } from '@/widgets/widget-frame'
@@ -50,9 +51,7 @@ function PendingWidget({ size, config }: WidgetProps<ListConfig>) {
   const update = useUpdateItem()
   const list = shopping ? pickList(shopping.lists, config.listId) : undefined
   const items = list ? (shopping?.pendingItems[list.id] ?? []) : []
-  const limit = size === 'M' ? 4 : size === 'L' ? 9 : 15
-  const visible = items.slice(0, limit)
-  const more = (list?.pendingCount ?? 0) - visible.length
+  const visible = items.slice(0, 40)
 
   return (
     <div className="flex h-full flex-col gap-2 p-4">
@@ -67,12 +66,7 @@ function PendingWidget({ size, config }: WidgetProps<ListConfig>) {
       ) : visible.length === 0 ? (
         <p className="m-auto text-sm text-fg-muted">都买齐了</p>
       ) : (
-        <ul
-          className={cn(
-            'flex-1 gap-x-3 gap-y-1.5',
-            size === 'M' ? 'grid grid-cols-2 content-start' : 'flex flex-col',
-          )}
-        >
+        <FitList columns={size === 'M' ? 2 : 1} className="gap-y-1.5">
           {visible.map((item) => (
             <li key={item.id} className="flex min-w-0 items-center gap-2">
               <button
@@ -91,9 +85,8 @@ function PendingWidget({ size, config }: WidgetProps<ListConfig>) {
               ) : null}
             </li>
           ))}
-        </ul>
+        </FitList>
       )}
-      {more > 0 ? <p className="text-xs text-fg-muted">还有 {more} 件…</p> : null}
     </div>
   )
 }

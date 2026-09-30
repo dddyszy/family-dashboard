@@ -9,10 +9,14 @@ export function breakpointFor(width: number): BreakpointName {
   return 'sm'
 }
 
-/** Square cells: row height equals column width. */
+/** Minimum row height on phones, where square cells get too short for a medium card's content. */
+const SM_MIN_ROW_HEIGHT = 80
+
+/** Square cells (row height equals column width), except on narrow phones. */
 export function rowHeightFor(width: number, breakpoint: BreakpointName): number {
   const cols = BREAKPOINT_COLS[breakpoint]
-  return Math.max(60, (width - GRID_MARGIN * (cols - 1)) / cols)
+  const square = (width - GRID_MARGIN * (cols - 1)) / cols
+  return Math.max(breakpoint === 'sm' ? SM_MIN_ROW_HEIGHT : 60, square)
 }
 
 export function useElementWidth<T extends HTMLElement>() {

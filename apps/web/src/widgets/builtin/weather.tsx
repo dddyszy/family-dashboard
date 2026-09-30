@@ -28,7 +28,7 @@ function WeatherWidget({ size }: WidgetProps) {
   const summary = (
     <div className="flex flex-col">
       <p className="text-sm font-semibold">{data.location}</p>
-      <p className="text-5xl leading-tight font-light tabular-nums">
+      <p className="mt-1 text-5xl leading-none font-light tabular-nums">
         {Math.round(data.current.temperature)}°
       </p>
     </div>
@@ -53,7 +53,7 @@ function WeatherWidget({ size }: WidgetProps) {
 
   const days = data.daily.slice(0, size === 'M' ? 5 : 6)
   return (
-    <div className="flex h-full flex-col justify-between gap-3 p-5">
+    <div className="flex h-full flex-col justify-between gap-2 p-4">
       <div className="flex items-start justify-between">
         {summary}
         <div className="text-right">
@@ -68,9 +68,9 @@ function WeatherWidget({ size }: WidgetProps) {
         {days.map((d, i) => {
           const info = describeWeather(d.weatherCode)
           return size === 'M' ? (
-            <div key={d.date} className="flex flex-col items-center gap-1 text-xs">
+            <div key={d.date} className="flex flex-col items-center gap-0.5 text-xs">
               <span className="text-fg-muted">{dayLabel(d.date, i)}</span>
-              <info.icon className="size-5" style={{ color: info.color }} />
+              <info.icon className="size-4.5" style={{ color: info.color }} />
               <span className="tabular-nums">
                 {Math.round(d.max)}°/{Math.round(d.min)}°
               </span>
