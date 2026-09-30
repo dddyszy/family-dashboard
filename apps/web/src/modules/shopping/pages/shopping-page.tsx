@@ -99,11 +99,11 @@ export function ShoppingPage() {
       <div className={cn(listId && 'hidden md:block')}>
         <PageHeader title="购物清单" />
       </div>
-      <div className="grid gap-5 md:grid-cols-[280px_1fr]">
+      <div className="grid gap-5 md:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
         <Glass className={cn('h-fit p-3', listId && 'hidden md:block')}>{listCards}</Glass>
         {selected ? (
-          <Glass className={cn('p-4 md:p-5', !listId && 'hidden md:block')}>
-            <div className="mb-4 flex items-center gap-2">
+          <Glass className={cn('min-w-0 p-4 md:p-5', !listId && 'hidden md:block')}>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
               <Link
                 to="/shopping"
                 className="rounded-full p-1.5 hover:bg-surface md:hidden"
@@ -111,7 +111,7 @@ export function ShoppingPage() {
               >
                 <ChevronLeft className="size-5" />
               </Link>
-              <h2 className="flex-1 truncate text-xl font-bold">{selected.name}</h2>
+              <h2 className="min-w-0 flex-1 truncate text-xl font-bold">{selected.name}</h2>
               <Button size="sm" onClick={() => setSupermarket(true)}>
                 <Store className="size-4" />
                 超市模式

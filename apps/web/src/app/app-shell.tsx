@@ -81,6 +81,8 @@ function Sidebar() {
             <Link
               key={item.to}
               href={item.to}
+              aria-label={item.label}
+              title={item.label}
               className={cn(
                 'pressable flex items-center gap-3 rounded-2xl px-3 py-3 font-medium transition md:justify-center lg:justify-start',
                 isActive(item, location)
@@ -127,6 +129,8 @@ function TabBar() {
             <Link
               key={item.to}
               href={item.to}
+              aria-label={item.label}
+              title={item.label}
               className={cn(
                 'pressable flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium',
                 active ? 'text-accent' : 'text-fg-muted',
