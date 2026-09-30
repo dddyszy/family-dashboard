@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="liquid-glass-light" data-wallpaper="aurora">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="theme-color" content="#1c2a4a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="看板" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <title>家庭看板</title>
+    <script>
+      ;(() => {
+        try {
+          const saved = JSON.parse(localStorage.getItem('fd-appearance') || 'null')
+          if (!saved) return
+          const root = document.documentElement
+          root.dataset.theme = saved.theme
+          root.dataset.perf = saved.perf ? 'on' : 'off'
+          if (saved.wallpaper.startsWith('/uploads/')) {
+            root.dataset.wallpaper = 'custom'
+            root.style.setProperty('--wallpaper-image', `url("${saved.wallpaper}")`)
+          } else {
+            root.dataset.wallpaper = saved.wallpaper
+          }
+        } catch {}
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <filter id="fd-refraction" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.008 0.012" numOctaves="2" seed="7" result="noise" />
+        <feGaussianBlur in="noise" stdDeviation="2" result="soft" />
+        <feDisplacementMap in="SourceGraphic" in2="soft" scale="18" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </svg>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

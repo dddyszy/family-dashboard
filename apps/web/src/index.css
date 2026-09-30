@@ -1,0 +1,272 @@
+@import "tailwindcss";
+@import "./themes/themes.css";
+@import "react-grid-layout/css/styles.css";
+
+@custom-variant dark (
+  &:where(
+    [data-theme="liquid-glass-dark"],
+    [data-theme="liquid-glass-dark"] *,
+    [data-theme="wall-display"],
+    [data-theme="wall-display"] *
+  )
+);
+
+@theme inline {
+  --color-fg: var(--text-primary);
+  --color-fg-muted: var(--text-secondary);
+  --color-fg-subtle: var(--text-tertiary);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
+  --color-surface-hover: var(--surface-hover);
+  --color-line: var(--line);
+  --color-overlay: var(--overlay);
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+  --ease-spring: linear(
+    0,
+    0.009,
+    0.035 2.1%,
+    0.141,
+    0.281 6.7%,
+    0.723 12.9%,
+    0.938 16.7%,
+    1.017,
+    1.077,
+    1.121,
+    1.149 24.3%,
+    1.159,
+    1.163,
+    1.161,
+    1.154 29.9%,
+    1.129 32.8%,
+    1.051 39.6%,
+    1.017 43.1%,
+    0.991,
+    0.977 51%,
+    0.974 53.8%,
+    0.975 57.1%,
+    0.997 69.8%,
+    1.003 76.9%,
+    1
+  );
+}
+
+@layer base {
+  html {
+    font-size: calc(16px * var(--font-scale));
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply font-sans text-fg antialiased;
+    background: var(--page-bg, #0f172a);
+    min-height: 100dvh;
+    overscroll-behavior: none;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  input[type="date"],
+  input[type="time"] {
+    color-scheme: inherit;
+  }
+}
+
+@layer components {
+  .wallpaper {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: var(--wallpaper);
+    background-size: cover;
+    background-position: center;
+    opacity: var(--wallpaper-opacity);
+    transition: opacity 0.4s ease;
+  }
+
+  .wallpaper::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--wallpaper-tint);
+  }
+
+  .glass {
+    position: relative;
+    isolation: isolate;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border-radius: var(--radius-card);
+    box-shadow:
+      inset 0 1px 0 0 var(--glass-highlight),
+      inset 0 -1px 0 0 var(--glass-lowlight),
+      var(--glass-shadow);
+  }
+
+  .glass-strong {
+    background: var(--glass-bg-strong);
+  }
+
+  /* Specular rim: bright top edge fading to a faint bottom edge. */
+  .glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      165deg,
+      var(--glass-border),
+      transparent 38%,
+      transparent 62%,
+      var(--glass-border-bottom)
+    );
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+    pointer-events: none;
+  }
+
+  html.refraction:not([data-perf="on"]) .glass-refract {
+    backdrop-filter: url(#fd-refraction) blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  .pressable {
+    transition: transform 0.35s var(--ease-spring);
+  }
+
+  .pressable:active {
+    transform: scale(0.97);
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@keyframes jiggle {
+  0% {
+    transform: rotate(-0.6deg);
+  }
+  50% {
+    transform: rotate(0.6deg);
+  }
+  100% {
+    transform: rotate(-0.6deg);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0.94);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-jiggle {
+  animation: jiggle 0.3s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.45s var(--ease-spring);
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s var(--ease-spring);
+}
+
+.animate-pop-in {
+  animation: pop-in 0.35s var(--ease-spring);
+}
+
+/* react-grid-layout overrides */
+.react-grid-item.react-grid-placeholder {
+  background: var(--accent-soft);
+  border-radius: var(--radius-card);
+  opacity: 1;
+}
+
+.react-grid-item.react-draggable-dragging {
+  z-index: 20;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-jiggle,
+  .animate-slide-in-right,
+  .animate-slide-up,
+  .animate-pop-in {
+    animation: none;
+  }
+}

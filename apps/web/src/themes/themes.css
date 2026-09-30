@@ -1,0 +1,218 @@
+/* Theme tokens. Components must only reference these variables (via Tailwind utilities). */
+
+:root,
+[data-theme="liquid-glass-light"] {
+  color-scheme: light;
+  --wallpaper-opacity: 1;
+  --wallpaper-tint: rgb(255 255 255 / 0.08);
+  --glass-bg: rgb(255 255 255 / 0.3);
+  --glass-bg-strong: rgb(250 250 252 / 0.72);
+  --glass-bg-solid: rgb(248 248 250 / 0.94);
+  --glass-border: rgb(255 255 255 / 0.75);
+  --glass-border-bottom: rgb(255 255 255 / 0.25);
+  --glass-highlight: rgb(255 255 255 / 0.65);
+  --glass-lowlight: rgb(0 0 0 / 0.04);
+  --glass-shadow: 0 10px 36px -8px rgb(20 30 60 / 0.22);
+  --glass-blur: 26px;
+  --glass-saturate: 185%;
+  --surface: rgb(255 255 255 / 0.55);
+  --surface-strong: rgb(255 255 255 / 0.85);
+  --surface-hover: rgb(255 255 255 / 0.7);
+  --line: rgb(0 0 0 / 0.08);
+  --text-primary: rgb(10 12 20 / 0.9);
+  --text-secondary: rgb(10 12 20 / 0.58);
+  --text-tertiary: rgb(10 12 20 / 0.38);
+  --accent: #0a84ff;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(10 132 255 / 0.14);
+  --danger: #ff3b30;
+  --success: #28b44b;
+  --warning: #ff9f0a;
+  --overlay: rgb(10 14 26 / 0.28);
+  --radius-card: 24px;
+  --radius-control: 14px;
+  --font-scale: 1;
+}
+
+[data-theme="liquid-glass-dark"] {
+  color-scheme: dark;
+  --wallpaper-opacity: 1;
+  --wallpaper-tint: rgb(0 0 0 / 0.32);
+  --glass-bg: rgb(40 42 54 / 0.34);
+  --glass-bg-strong: rgb(28 30 40 / 0.78);
+  --glass-bg-solid: rgb(30 32 42 / 0.95);
+  --glass-border: rgb(255 255 255 / 0.28);
+  --glass-border-bottom: rgb(255 255 255 / 0.06);
+  --glass-highlight: rgb(255 255 255 / 0.16);
+  --glass-lowlight: rgb(0 0 0 / 0.25);
+  --glass-shadow: 0 14px 40px -10px rgb(0 0 0 / 0.55);
+  --glass-blur: 28px;
+  --glass-saturate: 170%;
+  --surface: rgb(255 255 255 / 0.08);
+  --surface-strong: rgb(255 255 255 / 0.14);
+  --surface-hover: rgb(255 255 255 / 0.12);
+  --line: rgb(255 255 255 / 0.1);
+  --text-primary: rgb(255 255 255 / 0.94);
+  --text-secondary: rgb(235 235 245 / 0.62);
+  --text-tertiary: rgb(235 235 245 / 0.36);
+  --accent: #409cff;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(64 156 255 / 0.2);
+  --danger: #ff453a;
+  --success: #32d74b;
+  --warning: #ffb340;
+  --overlay: rgb(0 0 0 / 0.45);
+}
+
+[data-theme="classic"] {
+  color-scheme: light;
+  --wallpaper-opacity: 0;
+  --wallpaper-tint: transparent;
+  --page-bg: #eef0f5;
+  --glass-bg: #ffffff;
+  --glass-bg-strong: #ffffff;
+  --glass-bg-solid: #ffffff;
+  --glass-border: rgb(0 0 0 / 0.06);
+  --glass-border-bottom: rgb(0 0 0 / 0.06);
+  --glass-highlight: transparent;
+  --glass-lowlight: transparent;
+  --glass-shadow: 0 2px 10px rgb(20 30 60 / 0.08);
+  --glass-blur: 0px;
+  --glass-saturate: 100%;
+  --surface: #f4f5f8;
+  --surface-strong: #eceef3;
+  --surface-hover: #e8eaf0;
+  --line: rgb(0 0 0 / 0.08);
+  --text-primary: #1b1e27;
+  --text-secondary: #5f6577;
+  --text-tertiary: #9aa0ae;
+  --accent: #2f6fed;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(47 111 237 / 0.12);
+  --danger: #e5484d;
+  --success: #2f9e44;
+  --warning: #f08c00;
+  --overlay: rgb(10 14 26 / 0.3);
+  --radius-card: 16px;
+  --radius-control: 10px;
+}
+
+[data-theme="minimal"] {
+  color-scheme: light;
+  --wallpaper-opacity: 0;
+  --wallpaper-tint: transparent;
+  --page-bg: #fafafa;
+  --glass-bg: #ffffff;
+  --glass-bg-strong: #ffffff;
+  --glass-bg-solid: #ffffff;
+  --glass-border: rgb(0 0 0 / 0.1);
+  --glass-border-bottom: rgb(0 0 0 / 0.1);
+  --glass-highlight: transparent;
+  --glass-lowlight: transparent;
+  --glass-shadow: none;
+  --glass-blur: 0px;
+  --glass-saturate: 100%;
+  --surface: #f5f5f5;
+  --surface-strong: #eeeeee;
+  --surface-hover: #f0f0f0;
+  --line: rgb(0 0 0 / 0.1);
+  --text-primary: #111111;
+  --text-secondary: #666666;
+  --text-tertiary: #a3a3a3;
+  --accent: #111111;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(0 0 0 / 0.06);
+  --danger: #d92d20;
+  --success: #12a150;
+  --warning: #dc6803;
+  --overlay: rgb(0 0 0 / 0.25);
+  --radius-card: 12px;
+  --radius-control: 8px;
+}
+
+[data-theme="wall-display"] {
+  color-scheme: dark;
+  --wallpaper-opacity: 0;
+  --wallpaper-tint: transparent;
+  --page-bg: #000000;
+  --glass-bg: #16161a;
+  --glass-bg-strong: #1c1c21;
+  --glass-bg-solid: #1c1c21;
+  --glass-border: rgb(255 255 255 / 0.14);
+  --glass-border-bottom: rgb(255 255 255 / 0.14);
+  --glass-highlight: transparent;
+  --glass-lowlight: transparent;
+  --glass-shadow: none;
+  --glass-blur: 0px;
+  --glass-saturate: 100%;
+  --surface: #26262c;
+  --surface-strong: #303038;
+  --surface-hover: #2c2c33;
+  --line: rgb(255 255 255 / 0.16);
+  --text-primary: #ffffff;
+  --text-secondary: #d0d0d8;
+  --text-tertiary: #9a9aa6;
+  --accent: #5eb0ff;
+  --accent-fg: #000000;
+  --accent-soft: rgb(94 176 255 / 0.22);
+  --danger: #ff6961;
+  --success: #4be36a;
+  --warning: #ffc04d;
+  --overlay: rgb(0 0 0 / 0.6);
+  --radius-card: 20px;
+  --radius-control: 12px;
+  --font-scale: 1.15;
+}
+
+/* Performance mode: no blur, opaque surfaces. */
+[data-perf="on"] {
+  --glass-blur: 0px;
+  --glass-saturate: 100%;
+  --glass-bg: var(--glass-bg-solid);
+  --glass-bg-strong: var(--glass-bg-solid);
+}
+
+/* Wallpapers */
+[data-wallpaper="aurora"] {
+  --wallpaper:
+    radial-gradient(60% 50% at 15% 20%, #6ee7f9 0%, transparent 60%),
+    radial-gradient(55% 55% at 85% 15%, #a78bfa 0%, transparent 60%),
+    radial-gradient(60% 60% at 70% 85%, #f472b6 0%, transparent 60%),
+    radial-gradient(50% 50% at 20% 85%, #34d399 0%, transparent 60%),
+    linear-gradient(135deg, #1e3a8a, #312e81);
+}
+
+[data-wallpaper="sunset"] {
+  --wallpaper:
+    radial-gradient(60% 60% at 20% 20%, #fdba74 0%, transparent 60%),
+    radial-gradient(60% 60% at 80% 30%, #f472b6 0%, transparent 60%),
+    radial-gradient(70% 60% at 50% 90%, #fb7185 0%, transparent 60%),
+    linear-gradient(160deg, #7c2d12, #4c1d95);
+}
+
+[data-wallpaper="ocean"] {
+  --wallpaper:
+    radial-gradient(60% 60% at 25% 25%, #38bdf8 0%, transparent 60%),
+    radial-gradient(60% 60% at 80% 70%, #2dd4bf 0%, transparent 60%),
+    radial-gradient(50% 50% at 75% 15%, #818cf8 0%, transparent 60%),
+    linear-gradient(160deg, #0c4a6e, #134e4a);
+}
+
+[data-wallpaper="forest"] {
+  --wallpaper:
+    radial-gradient(60% 60% at 20% 30%, #86efac 0%, transparent 60%),
+    radial-gradient(55% 55% at 80% 25%, #fde68a 0%, transparent 60%),
+    radial-gradient(60% 60% at 60% 90%, #34d399 0%, transparent 60%),
+    linear-gradient(160deg, #14532d, #1e3a2f);
+}
+
+[data-wallpaper="graphite"] {
+  --wallpaper:
+    radial-gradient(60% 60% at 20% 20%, #94a3b8 0%, transparent 60%),
+    radial-gradient(60% 60% at 85% 80%, #64748b 0%, transparent 60%),
+    linear-gradient(160deg, #1f2937, #0f172a);
+}
+
+[data-wallpaper="custom"] {
+  --wallpaper: var(--wallpaper-image);
+}

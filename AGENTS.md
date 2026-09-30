@@ -88,8 +88,10 @@ docker compose up -d     # 本地以容器方式运行
 - 注释只写代码本身表达不了的约束或原因（例如浏览器限制、时区陷阱）
 - 不写复述代码的注释，不写修改记录，不保留注释掉的代码
 
-## 提交
+## 分支与提交
 
+- 远程仓库：`https://github.com/dddyszy/family-dashboard`
+- `master` 为稳定主分支，只接受来自 `dev` 的合并；日常开发在 `dev` 上进行，较大的功能从 `dev` 拉出 `feat/<名称>` 分支，完成后合回 `dev`
 - 遵循 Conventional Commits：`feat:`、`fix:`、`refactor:`、`style:`、`test:`、`docs:`、`chore:`
 - 作用域用模块名，例如 `feat(shopping): support batch paste`
 - 一次提交只做一件事
