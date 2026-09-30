@@ -865,7 +865,7 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 可选 HTTPS 入口的证书、反向代理、双协议会话及验收要求统一维护在 [HTTPS 配置指南](DEPLOY_HTTPS.md)。看板进程继续提供 HTTP，由外部代理终止 TLS。
 
 - 单个容器运行 Bun 服务、React 静态资源、SQLite 和定时任务，默认通过 `http://服务器内网IP:8686` 访问。
-- 使用已发布镜像；工作流发布目标为 `linux/amd64` 和 `linux/arm64`。`master` 构建发布 `latest`，仅推送 `dev` 不发布该标签。发布规则见 [镜像自动构建](CI_IMAGE.md)。
+- 使用已发布镜像；工作流发布目标为 `linux/amd64` 和 `linux/arm64`。仅推送 `v*` Git 标签触发构建，并生成同名镜像标签；正式语义化版本更新 `latest`，预发布版本不更新。推送 `master` / `dev` 均不构建。发布规则见 [镜像自动构建](CI_IMAGE.md)。
 - Compose 的 `environment` 直接填写配置，不依赖额外环境变量文件。生产环境要求 `APP_SECRET` 至少 32 个字符；IP 直连时 `PUBLIC_URL` 留空。经反向代理访问时，把代理连到看板时的来源地址填入 `TRUSTED_PROXIES`（逗号分隔的精确 IP），限流才能区分真实客户端；不填时所有经代理的请求共用一个限流桶。
 - `./data:/app/data` 保存数据库、上传文件及数据库快照；镜像以 root 运行以适配 NAS 本地目录权限。数据使用本地文件系统，不让多个运行实例共享同一数据库。
 - 镜像自带 `/api/health` 健康检查。修改环境变量、挂载、端口或镜像后需要用 `docker compose up -d` 重建，普通重启不应用这些配置变更。

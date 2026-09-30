@@ -2,9 +2,7 @@ name: Docker image
 
 on:
   push:
-    branches: [master]
     tags: ['v*']
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -60,8 +58,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ steps.images.outputs.list }}
+          flavor: latest=auto
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+            type=raw,value=${{ github.ref_name }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=sha-,format=short

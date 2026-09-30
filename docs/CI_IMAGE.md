@@ -6,9 +6,12 @@
 
 | 触发方式 | 生成的镜像标签 |
 | --- | --- |
-| 推送到 `master`（例如把 `dev` 合并过去） | `latest`、`sha-<提交号>` |
-| 推送版本标签，例如 `v0.1.0` | `0.1.0`、`0.1`、`sha-<提交号>` |
-| 在 GitHub 的 Actions 页面手动运行 | `sha-<提交号>` |
+| 推送正式版本标签，例如 `v1.2.3` | `v1.2.3`、`1.2.3`、`1.2`、`latest`、`sha-<提交号>` |
+| 推送预发布标签，例如 `v1.3.0-rc.1` | `v1.3.0-rc.1`、`1.3.0-rc.1`、`sha-<提交号>`；不更新 `latest` / `1.3` |
+| 推送其他 `v*` 标签，例如 `vtest` | `vtest`、`sha-<提交号>`；不更新 `latest` |
+| 推送到 `master` 或 `dev`、在 GitHub 手动发起新工作流 | 不构建；工作流只接受 `v*` 标签推送 |
+
+建议采用 `v主版本.次版本.修订号` 格式发布，并使用 Docker 标签允许的字符（字母、数字、下划线、点、连字符），总长度不超过 128 个字符。避免 `+` 等字符，以确保镜像标签与 Git 标签完全一致。`latest` 跟随最近一次成功发布的正式版本，不比较版本号大小；发布旧版本标签也可能使它回退。已发布的版本标签不要移动或覆盖。
 
 每次都会同时构建 `linux/amd64`（Intel / AMD 的 NAS 和服务器）和 `linux/arm64`（ARM 芯片的 NAS、树莓派等）两种架构，拉取时 Docker 会自动选择匹配的版本。首次构建约 10 – 20 分钟（ARM 版本需要模拟编译），之后有缓存会快很多。
 
@@ -48,7 +51,7 @@
 | `ALIYUN_USERNAME` | 访问凭证页面显示的用户名 |
 | `ALIYUN_PASSWORD` | 第 1 步设置的固定密码 |
 
-配置好后，下一次构建会同时推送到 `registry.cn-hangzhou.aliyuncs.com/dddyszy/family-dashboard`。也可以在「Actions」页面选择「Docker image」→「Run workflow」手动触发一次。
+配置好后，下一次推送版本标签会同时推送到 `registry.cn-hangzhou.aliyuncs.com/dddyszy/family-dashboard`，两个镜像仓库使用相同的标签。构建失败后可在对应 Actions 运行页面选择「Re-run jobs」重试，无需移动 Git 标签。
 
 ### 3. 选择已发布的镜像源
 
@@ -61,14 +64,24 @@
 ## 发布流程
 
 ```bash
-# 1. 在 dev 上开发并验证
+# 1. 在 dev 上开发并通过 bun run check，再合并稳定代码
 git checkout master
 git merge dev
-git push origin master          # 构建 latest
+git push origin master          # 只更新源码，不构建镜像
 
-# 2. 需要固定版本时打标签
-git tag v0.1.0
-git push origin v0.1.0          # 构建 0.1.0 和 0.1
+# 2. 给当前稳定提交打一个尚未使用的版本标签
+git tag -a v1.2.3 -m "Release v1.2.3"
+git push origin v1.2.3          # 构建 v1.2.3、1.2.3、1.2、latest 和 sha-<提交号>
 ```
 
-部署、升级、固定镜像版本及回退步骤统一见 [Docker Compose 部署指南](DEPLOY_DOCKER_COMPOSE.md)。版本标签必须已实际发布；仅推送 `dev` 不会自动发布 `latest` 或 `dev` 镜像。
+以上版本号只是示例，发布时替换成实际新版本。首次采用此流程时，先确保新的工作流已经合入待打标签的提交；GitHub 使用标签所指提交中的工作流配置。打标签可以指向任意提交，工作流不会自动检查它是否属于 `master`；正式发布请按上述流程从稳定分支打标签。
+
+发布成功后，可以在 Compose 中固定到与 Git 标签相同的版本：
+
+```yaml
+    image: ghcr.io/dddyszy/family-dashboard:v1.2.3
+```
+
+如需测试预发布版，推送类似 `v1.3.0-rc.1` 的标签，并将 Compose 的 `image` 改成该标签；它不会影响使用 `latest` 的部署。
+
+部署、升级、固定镜像版本及回退步骤统一见 [Docker Compose 部署指南](DEPLOY_DOCKER_COMPOSE.md)。等 Actions 成功推送镜像后再拉取；仅推送 `master` / `dev` 或只在本地打标签都不会发布镜像。
