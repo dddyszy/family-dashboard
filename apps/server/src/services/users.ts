@@ -7,10 +7,10 @@ import {
   type UpdateMeInput,
   type UpdateUserInput,
 } from '@shared/schemas/users'
-import { asc, count, eq } from 'drizzle-orm'
+import { and, asc, count, eq, ne } from 'drizzle-orm'
 import { sessions, users } from '../db/schema'
 import type { Deps, UserRow } from '../lib/context'
-import { newId } from '../lib/crypto'
+import { newId, sha256 } from '../lib/crypto'
 import { badRequest, conflict, notFound } from '../lib/errors'
 
 export function toPublicUser(row: UserRow): PublicUser {
@@ -84,8 +84,7 @@ function assertKeepsAnAdmin(deps: Deps, target: UserRow): void {
 }
 
 export async function updateUser(deps: Deps, id: string, input: UpdateUserInput): Promise<UserRow> {
-  const target = getUser(deps, id)
-  if (input.role === 'member') assertKeepsAnAdmin(deps, target)
+  getUser(deps, id)
   const patch: Partial<UserRow> = { updatedAt: deps.now() }
   if (input.name !== undefined) patch.name = input.name
   if (input.color !== undefined) patch.color = input.color
@@ -93,6 +92,11 @@ export async function updateUser(deps: Deps, id: string, input: UpdateUserInput)
   if (input.role !== undefined) patch.role = input.role
   if (input.password !== undefined) {
     patch.passwordHash = await Bun.password.hash(input.password)
+  }
+  // Password hashing yields: validate the current admin count immediately before writing.
+  const target = getUser(deps, id)
+  if (input.role === 'member') assertKeepsAnAdmin(deps, target)
+  if (input.password !== undefined) {
     deps.db.delete(sessions).where(eq(sessions.userId, id)).run()
   }
   deps.db.update(users).set(patch).where(eq(users.id, id)).run()
@@ -108,7 +112,12 @@ export function deleteUser(deps: Deps, id: string, actingUserId: string): void {
   deps.hub.disconnect({ userId: id })
 }
 
-export async function updateMe(deps: Deps, user: UserRow, input: UpdateMeInput): Promise<UserRow> {
+export async function updateMe(
+  deps: Deps,
+  user: UserRow,
+  input: UpdateMeInput,
+  currentSessionToken?: string,
+): Promise<UserRow> {
   const patch: Partial<UserRow> = { updatedAt: deps.now() }
   if (input.name !== undefined) patch.name = input.name
   if (input.color !== undefined) patch.color = input.color
@@ -120,7 +129,20 @@ export async function updateMe(deps: Deps, user: UserRow, input: UpdateMeInput):
       : false
     if (!ok) throw badRequest('当前密码不正确')
     patch.passwordHash = await Bun.password.hash(input.newPassword)
+    if (getUser(deps, user.id).passwordHash !== user.passwordHash) {
+      throw badRequest('密码已变更，请重新登录后再试')
+    }
+    deps.db
+      .delete(sessions)
+      .where(
+        and(
+          eq(sessions.userId, user.id),
+          currentSessionToken ? ne(sessions.tokenHash, sha256(currentSessionToken)) : undefined,
+        ),
+      )
+      .run()
   }
   deps.db.update(users).set(patch).where(eq(users.id, user.id)).run()
+  if (input.newPassword) deps.hub.disconnect({ userId: user.id })
   return getUser(deps, user.id)
 }

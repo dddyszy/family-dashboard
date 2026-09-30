@@ -77,8 +77,12 @@ export async function login(
 ): Promise<IssuedSession> {
   const user = deps.db.select().from(users).where(eq(users.username, input.username)).get()
   const ok = user ? await Bun.password.verify(input.password, user.passwordHash) : false
-  if (!user || !ok) throw badRequest('用户名或密码不正确')
-  return issueSession(deps, user, userAgent)
+  const current = user ? deps.db.select().from(users).where(eq(users.id, user.id)).get() : null
+  // A password reset may finish while verification yields; never issue an old-password session.
+  if (!user || !ok || !current || current.passwordHash !== user.passwordHash) {
+    throw badRequest('用户名或密码不正确')
+  }
+  return issueSession(deps, current, userAgent)
 }
 
 export function logout(deps: Deps, token: string): void {
