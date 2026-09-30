@@ -245,7 +245,7 @@ modules/<name>/
 - **尺寸**：S(2x2)、M(4x2)、L(4x4)、XL(4x6)，单位为网格格子
 - **编辑模式**：点击「编辑」进入，卡片轻微抖动（类似 iOS），此时可拖拽排序、删除，并通过卡片底部的 S / M / L / XL 按钮切换尺寸（只能切换到该卡片支持的尺寸，不做自由缩放）；点击「完成」保存，「取消」放弃修改
 - **卡片库**：按模块分组，展示每张卡片的实时预览，点击或拖入即可添加；每张卡片可以单独配置（例如选哪个购物清单、显示哪些成员）
-- **布局归属**：每个用户保存自己的首页布局；另有一个「家庭公共大屏」布局，专门给挂墙平板使用，只有管理员可以编辑
+- **布局归属**：全家只有一个大屏布局，所有成员的首页和挂墙平板显示的都是它；任何成员都可以编辑，保存后通过实时通道同步到所有设备。卡片里的数据仍按可见性过滤，私有日程和清单只出现在本人的屏幕上
 - **第一期提供的卡片**：
 
 | 卡片 | 尺寸 | 说明 |
@@ -413,9 +413,9 @@ registerWidget({
 
 ### 6.4 存储
 
-- `dashboards.layout`：`{ lg: Layout[], md: Layout[], sm: Layout[] }`，其中 `Layout` 为 `{ i, x, y, w, h }`
+- `dashboards`：只有一行，id 固定为 `family`；`layouts` 为 `{ lg: Layout[], md: Layout[], sm: Layout[] }`，其中 `Layout` 为 `{ i, x, y, w, h }`
 - `widgets`：每张卡片一行，`id` 与布局中的 `i` 对应，保存 `type` 和 `config`
-- 保存布局时整体替换（`PUT /api/dashboards/:id`），家庭规模下无需增量更新
+- 保存布局时整体替换（`PUT /api/dashboard`），家庭规模下无需增量更新
 
 ---
 
@@ -440,7 +440,6 @@ erDiagram
     users ||--o{ todos : owns
     users ||--o{ shopping_lists : owns
     shopping_lists ||--o{ shopping_items : contains
-    users ||--o{ dashboards : has
     dashboards ||--o{ widgets : contains
     users ||--o{ reminders : receives
     dashboards ||--o{ devices : shows
@@ -450,7 +449,7 @@ erDiagram
 | --- | --- | --- |
 | `users` | id, username, name, avatar, color, role(`admin`/`member`), password_hash, prefs(JSON：主题、壁纸、夜间自动深色、性能模式、折射效果) | 家庭成员 |
 | `sessions` | id, user_id, token_hash, expires_at, user_agent | 登录会话，只存令牌的哈希 |
-| `devices` | id, name, token_hash, last_seen_at, revoked_at | 大屏设备，统一显示家庭公共大屏 |
+| `devices` | id, name, token_hash, last_seen_at, revoked_at | 大屏设备，只读显示全家共用的大屏 |
 | `pairing_codes` | code, expires_at | 大屏配对码，5 分钟有效 |
 | `settings` | key, value(JSON) | 家庭级设置：时区、天气位置、夜间深色时段、大屏外观与夜间模式 |
 | `events` | id, owner_id, visibility, title, location, note, color, start_at, end_at, all_day, rrule, exdates(JSON), parent_id, recurrence_id, remind_offsets(JSON) | 日程 |
@@ -459,7 +458,7 @@ erDiagram
 | `shopping_lists` | id, owner_id, visibility, name, icon, color, sort | 购物清单 |
 | `shopping_items` | id, list_id, name, qty, unit, category, note, added_by, checked, checked_by, checked_at, archived_at | 购物条目 |
 | `shopping_history` | key(规范化名称，主键), name, category, count, last_at | 联想与自动归类 |
-| `dashboards` | id(家庭公共大屏固定为 `family`), user_id, layouts(JSON，按断点) | 首页布局 |
+| `dashboards` | id(固定为 `family`), layouts(JSON，按断点) | 全家共用的大屏布局，只有一行 |
 | `widgets` | id, dashboard_id, type, config(JSON) | 卡片实例 |
 | `reminders` | id, source_type(`event`/`todo`), source_id, occurrence_at, user_id, fire_at, status, fired_at, payload(JSON：标题、开始时间、地点、是否家庭可见) | 提醒；payload 是生成时的快照，弹窗无需再查源数据 |
 
@@ -556,8 +555,8 @@ stateDiagram-v2
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/home` | 首页聚合数据 |
-| GET | `/dashboards/mine`、`/dashboards/family` | 获取布局与卡片 |
-| PUT | `/dashboards/:id` | 保存布局与卡片 |
+| GET | `/dashboard` | 获取全家共用的大屏布局与卡片（成员和大屏设备均可） |
+| PUT | `/dashboard` | 保存布局与卡片（任何成员，大屏设备不可） |
 | GET | `/weather` | 天气（服务端缓存 30 分钟） |
 | GET | `/stream` | SSE 实时通道 |
 | POST | `/uploads` | 上传头像、壁纸（限制 5MB，仅图片），文件通过 `/uploads/<name>` 访问 |
@@ -587,7 +586,7 @@ data: {"listId":"...","item":{...}}
   - `shopping.list.changed`、`shopping.item.created`、`shopping.item.updated`、`shopping.item.deleted`
   - `calendar.changed`（前端收到后让相关日期区间的查询失效并重新请求）
   - `todo.changed`
-  - `dashboard.changed`（家庭公共大屏布局被修改时，大屏自动刷新布局）
+  - `dashboard.changed`（大屏布局被修改时，所有在线页面和大屏自动刷新布局）
   - `reminder.fired`
 - 稳定性：
   - 每 20 秒发送一次心跳注释行（`: ping`），防止反向代理和 Bun 的空闲超时断开连接
@@ -709,12 +708,12 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 
 1. 管理员在「设置 → 大屏设备」中点击「添加设备」，得到一个 6 位配对码（5 分钟有效）
 2. 平板打开 `https://<域名>/kiosk`，输入配对码
-3. 服务端下发长期有效的设备令牌（HttpOnly Cookie），设备只能以只读身份查看家庭公共大屏
+3. 服务端下发长期有效的设备令牌（HttpOnly Cookie），设备只能以只读身份查看大屏
 4. 管理员可以随时吊销设备
 
 **页面行为**
 
-- 全屏显示家庭公共大屏布局，隐藏侧边栏和编辑入口；点击卡片仍可打开只读抽屉
+- 全屏显示与成员首页相同的大屏布局，隐藏侧边栏和编辑入口；点击卡片仍可打开只读抽屉
 - 数据通过 SSE 实时更新，另外每 5 分钟静默刷新一次作为兜底
 - 每天凌晨 4 点整页重载一次，释放长时间运行积累的内存，同时应用新版本
 - 屏幕常亮：使用 Wake Lock API，页面切回前台时自动重新申请；夜间时段主动释放
@@ -821,7 +820,8 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 
 **角色**
 
-- `admin`：管理成员、大屏设备、家庭设置、家庭公共大屏布局、备份
+- `admin`：管理成员、大屏设备、家庭设置、备份
+- 所有成员：编辑全家共用的大屏布局
 - `member`：管理自己的数据和家庭共享数据
 - 大屏设备：只读，只能访问首页相关的读接口和 SSE
 

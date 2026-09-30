@@ -4,6 +4,7 @@ import {
   compactLayout,
   layoutsForSizes,
   packLayout,
+  pruneLayouts,
   removeFromLayouts,
   sizeOf,
 } from './layout'
@@ -77,6 +78,19 @@ describe('layout helpers', () => {
     const next = appendToLayouts(base, 'b', 'S')
     expect(next.lg.find((i) => i.i === 'b')).toEqual({ i: 'b', x: 0, y: 4, w: 2, h: 2 })
     expect(removeFromLayouts(next, 'b').lg).toHaveLength(1)
+  })
+
+  test('pruneLayouts removes entries of deleted widgets on every breakpoint', () => {
+    const layouts = layoutsForSizes([
+      { id: 'keep', size: 'S' },
+      { id: 'gone', size: 'M' },
+    ])
+    const pruned = pruneLayouts(layouts, ['keep'])
+    expect([pruned.lg, pruned.md, pruned.sm].map((items) => items.map((i) => i.i))).toEqual([
+      ['keep'],
+      ['keep'],
+      ['keep'],
+    ])
   })
 
   test('sizeOf maps dimensions back to named sizes', () => {

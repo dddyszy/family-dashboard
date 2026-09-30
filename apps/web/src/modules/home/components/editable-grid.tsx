@@ -1,4 +1,4 @@
-import { sizeOf } from '@shared/layout'
+import { pruneLayouts, sizeOf } from '@shared/layout'
 import {
   BREAKPOINT_COLS,
   BREAKPOINT_WIDTHS,
@@ -51,7 +51,13 @@ export function EditableGrid({
     for (const bp of BREAKPOINTS) {
       if (all[bp]) next[bp] = toItems(all[bp])
     }
-    onLayoutsChange(next)
+    // The grid caches layouts for breakpoints not on screen, which still contain removed widgets.
+    onLayoutsChange(
+      pruneLayouts(
+        next,
+        widgets.map((w) => w.id),
+      ),
+    )
   }
 
   return (

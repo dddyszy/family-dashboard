@@ -160,9 +160,6 @@ export const shoppingHistory = sqliteTable('shopping_history', {
 
 export const dashboards = sqliteTable('dashboards', {
   id: text('id').primaryKey(),
-  userId: text('user_id')
-    .unique()
-    .references(() => users.id, { onDelete: 'cascade' }),
   layouts: text('layouts', { mode: 'json' }).$type<Layouts>().notNull(),
   ...timestamps,
 })

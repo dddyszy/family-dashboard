@@ -41,7 +41,6 @@ export type WidgetInstance = z.infer<typeof widgetInstanceSchema>
 
 export type Dashboard = {
   id: string
-  userId: string | null
   layouts: Layouts
   widgets: WidgetInstance[]
   updatedAt: number

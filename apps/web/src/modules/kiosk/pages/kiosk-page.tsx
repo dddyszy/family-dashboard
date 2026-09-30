@@ -95,7 +95,7 @@ function PairDevice() {
 function KioskDashboard({ isDevice }: { isDevice: boolean }) {
   const household = useHousehold().data ?? DEFAULT_HOUSEHOLD_SETTINGS
   const { kiosk, timezone } = household
-  const dashboard = useDashboard('family')
+  const dashboard = useDashboard()
   useHome()
   const now = useNow(30_000)
   const soundUnlocked = useSoundState((s) => s.unlocked)
@@ -131,25 +131,27 @@ function KioskDashboard({ isDevice }: { isDevice: boolean }) {
 
   return (
     <div className="min-h-dvh p-4 md:p-6">
-      <header className="mb-4 flex items-end justify-between gap-4 px-1">
+      <header className="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 px-1">
         <div>
           <p className="text-4xl font-semibold tracking-tight tabular-nums md:text-5xl">
             {formatTime(now, timezone)}
           </p>
-          <p className="mt-1 text-fg-muted">
-            {formatFullDate(now, timezone)}
-            {lunarDate(now, timezone) ? ` · 农历${lunarDate(now, timezone)}` : ''}
+          <p className="mt-1 flex flex-wrap gap-x-2 text-fg-muted">
+            <span className="whitespace-nowrap">{formatFullDate(now, timezone)}</span>
+            {lunarDate(now, timezone) ? (
+              <span className="whitespace-nowrap">农历{lunarDate(now, timezone)}</span>
+            ) : null}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {!soundUnlocked ? (
-            <Button onClick={() => void unlockSound()}>
+            <Button onClick={() => void unlockSound()} className="whitespace-nowrap">
               <Volume2 className="size-4" />
-              点击启用提醒声音
+              启用提醒声音
             </Button>
           ) : null}
           {!isDevice ? (
-            <Link to="/" className="text-sm text-fg-muted hover:text-fg">
+            <Link to="/" className="text-sm whitespace-nowrap text-fg-muted hover:text-fg">
               返回首页
             </Link>
           ) : null}

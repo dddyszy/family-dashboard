@@ -65,6 +65,16 @@ export function resizeInLayouts(layouts: Layouts, id: string, size: WidgetSize):
   return next
 }
 
+/** Drops layout entries whose widget no longer exists. */
+export function pruneLayouts(layouts: Layouts, ids: Iterable<string>): Layouts {
+  const keep = new Set(ids)
+  return {
+    lg: layouts.lg.filter((item) => keep.has(item.i)),
+    md: layouts.md.filter((item) => keep.has(item.i)),
+    sm: layouts.sm.filter((item) => keep.has(item.i)),
+  }
+}
+
 export function removeFromLayouts(layouts: Layouts, id: string): Layouts {
   return {
     lg: layouts.lg.filter((item) => item.i !== id),

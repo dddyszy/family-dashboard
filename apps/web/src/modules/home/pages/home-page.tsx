@@ -1,10 +1,9 @@
-import { appendToLayouts, removeFromLayouts, resizeInLayouts } from '@shared/layout'
+import { appendToLayouts, pruneLayouts, removeFromLayouts, resizeInLayouts } from '@shared/layout'
 import type { Layouts, WidgetInstance } from '@shared/schemas/dashboard'
 import { getZonedParts } from '@shared/time'
 import { Check, Pencil, Plus } from 'lucide-react'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Button } from '@/components/button'
-import { Segmented } from '@/components/form'
 import { errorMessage } from '@/lib/api'
 import { formatFullDate } from '@/lib/time'
 import { useNow } from '@/lib/use-now'
@@ -12,7 +11,6 @@ import { useCurrentUser } from '@/modules/auth/queries'
 import { useTimeZone } from '@/modules/settings/queries'
 import { toast, useUi } from '@/stores/ui'
 import { parseWidgetConfig, type WidgetDefinition } from '@/widgets/registry'
-import type { DashboardKind } from '../api'
 import { DashboardGrid } from '../components/dashboard-grid'
 import { useDashboard, useHome, useSaveDashboard } from '../queries'
 
@@ -37,9 +35,8 @@ export function HomePage() {
   const user = useCurrentUser()
   const timeZone = useTimeZone()
   const now = useNow(60_000)
-  const [kind, setKind] = useState<DashboardKind>('mine')
-  const dashboard = useDashboard(kind)
-  const save = useSaveDashboard(kind)
+  const dashboard = useDashboard()
+  const save = useSaveDashboard()
   useHome()
   const { editMode, setEditMode, galleryOpen, setGalleryOpen } = useUi()
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -60,13 +57,17 @@ export function HomePage() {
 
   const finish = () => {
     if (!draft || !dashboard.data) return
+    const layouts = pruneLayouts(
+      draft.layouts,
+      draft.widgets.map((w) => w.id),
+    )
     save.mutate(
-      { id: dashboard.data.id, input: draft },
+      { ...draft, layouts },
       {
         onSuccess: () => {
           setDraft(null)
           setEditMode(false)
-          toast.success('布局已保存')
+          toast.success('布局已保存，全家看到的都会更新')
         },
         onError: (err) => toast.error(errorMessage(err)),
       },
@@ -95,7 +96,6 @@ export function HomePage() {
     : undefined
   const current: Draft | undefined = draft ?? dashboard.data
   const hour = getZonedParts(now, timeZone).hour
-  const isAdmin = user?.role === 'admin'
 
   return (
     <div>
@@ -108,16 +108,6 @@ export function HomePage() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {isAdmin && !editMode ? (
-            <Segmented
-              value={kind}
-              onChange={setKind}
-              options={[
-                { value: 'mine', label: '我的首页' },
-                { value: 'family', label: '家庭大屏' },
-              ]}
-            />
-          ) : null}
           {editMode ? (
             <>
               <Button onClick={() => setGalleryOpen(true)}>

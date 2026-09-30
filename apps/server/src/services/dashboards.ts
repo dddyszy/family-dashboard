@@ -1,26 +1,15 @@
 import { FAMILY_DASHBOARD_ID } from '@shared/constants'
-import { layoutsForSizes } from '@shared/layout'
+import { layoutsForSizes, pruneLayouts } from '@shared/layout'
 import type { Dashboard, SaveDashboardInput, WidgetSize } from '@shared/schemas/dashboard'
 import { eq } from 'drizzle-orm'
 import { dashboards, widgets } from '../db/schema'
 import type { Deps } from '../lib/context'
 import { newId } from '../lib/crypto'
-import { badRequest, notFound } from '../lib/errors'
+import { badRequest } from '../lib/errors'
 
 type DefaultWidget = { type: string; size: WidgetSize; config?: Record<string, unknown> }
 
-const PERSONAL_DEFAULTS: DefaultWidget[] = [
-  { type: 'clock.basic', size: 'S' },
-  { type: 'weather.basic', size: 'S' },
-  { type: 'calendar.today', size: 'L' },
-  { type: 'shopping.pending', size: 'L' },
-  { type: 'calendar.upcoming', size: 'L' },
-  { type: 'todos.open', size: 'M' },
-  { type: 'calendar.next', size: 'S' },
-  { type: 'shopping.count', size: 'S' },
-]
-
-const FAMILY_DEFAULTS: DefaultWidget[] = [
+const DEFAULT_WIDGETS: DefaultWidget[] = [
   { type: 'clock.basic', size: 'M' },
   { type: 'weather.basic', size: 'M' },
   { type: 'calendar.members', size: 'XL' },
@@ -31,23 +20,23 @@ const FAMILY_DEFAULTS: DefaultWidget[] = [
   { type: 'shopping.count', size: 'S' },
 ]
 
-function createDashboard(
-  deps: Deps,
-  id: string,
-  userId: string | null,
-  defaults: DefaultWidget[],
-): void {
+function createDashboard(deps: Deps): void {
   const ts = deps.now()
-  const items = defaults.map((d) => ({ ...d, id: newId() }))
+  const items = DEFAULT_WIDGETS.map((d) => ({ ...d, id: newId() }))
   deps.db.transaction((tx) => {
     tx.insert(dashboards)
-      .values({ id, userId, layouts: layoutsForSizes(items), createdAt: ts, updatedAt: ts })
+      .values({
+        id: FAMILY_DASHBOARD_ID,
+        layouts: layoutsForSizes(items),
+        createdAt: ts,
+        updatedAt: ts,
+      })
       .run()
     for (const item of items) {
       tx.insert(widgets)
         .values({
           id: item.id,
-          dashboardId: id,
+          dashboardId: FAMILY_DASHBOARD_ID,
           type: item.type,
           config: item.config ?? {},
           createdAt: ts,
@@ -58,61 +47,48 @@ function createDashboard(
   })
 }
 
-function load(deps: Deps, id: string): Dashboard | null {
-  const row = deps.db.select().from(dashboards).where(eq(dashboards.id, id)).get()
+function load(deps: Deps): Dashboard | null {
+  const row = deps.db.select().from(dashboards).where(eq(dashboards.id, FAMILY_DASHBOARD_ID)).get()
   if (!row) return null
-  const items = deps.db.select().from(widgets).where(eq(widgets.dashboardId, id)).all()
+  const items = deps.db
+    .select()
+    .from(widgets)
+    .where(eq(widgets.dashboardId, FAMILY_DASHBOARD_ID))
+    .all()
   return {
     id: row.id,
-    userId: row.userId,
     layouts: row.layouts,
     widgets: items.map((w) => ({ id: w.id, type: w.type, config: w.config })),
     updatedAt: row.updatedAt,
   }
 }
 
-export function getMyDashboard(deps: Deps, userId: string): Dashboard {
-  const existing = deps.db.select().from(dashboards).where(eq(dashboards.userId, userId)).get()
-  if (existing) return load(deps, existing.id) as Dashboard
-  const id = newId()
-  createDashboard(deps, id, userId, PERSONAL_DEFAULTS)
-  return load(deps, id) as Dashboard
-}
-
-export function getFamilyDashboard(deps: Deps): Dashboard {
-  const existing = load(deps, FAMILY_DASHBOARD_ID)
+/** The one dashboard the whole family shares, created with defaults on first access. */
+export function getDashboard(deps: Deps): Dashboard {
+  const existing = load(deps)
   if (existing) return existing
-  createDashboard(deps, FAMILY_DASHBOARD_ID, null, FAMILY_DEFAULTS)
-  return load(deps, FAMILY_DASHBOARD_ID) as Dashboard
+  createDashboard(deps)
+  return load(deps) as Dashboard
 }
 
-export function getDashboardOwner(deps: Deps, id: string): { userId: string | null } {
-  const row = deps.db
-    .select({ userId: dashboards.userId })
-    .from(dashboards)
-    .where(eq(dashboards.id, id))
-    .get()
-  if (!row) throw notFound('看板不存在')
-  return row
-}
-
-export function saveDashboard(deps: Deps, id: string, input: SaveDashboardInput): Dashboard {
-  const ids = new Set(input.widgets.map((w) => w.id))
-  for (const bp of ['lg', 'md', 'sm'] as const) {
-    if (input.layouts[bp].some((item) => !ids.has(item.i))) throw badRequest('布局中存在未知的卡片')
-  }
+export function saveDashboard(deps: Deps, input: SaveDashboardInput): Dashboard {
+  const ids = input.widgets.map((w) => w.id)
+  if (new Set(ids).size !== ids.length) throw badRequest('卡片 ID 重复')
+  // Stray layout entries (e.g. of a just-removed widget) are harmless, so drop them instead of failing.
+  const layouts = pruneLayouts(input.layouts, ids)
+  getDashboard(deps)
   const ts = deps.now()
   deps.db.transaction((tx) => {
     tx.update(dashboards)
-      .set({ layouts: input.layouts, updatedAt: ts })
-      .where(eq(dashboards.id, id))
+      .set({ layouts, updatedAt: ts })
+      .where(eq(dashboards.id, FAMILY_DASHBOARD_ID))
       .run()
-    tx.delete(widgets).where(eq(widgets.dashboardId, id)).run()
+    tx.delete(widgets).where(eq(widgets.dashboardId, FAMILY_DASHBOARD_ID)).run()
     for (const w of input.widgets) {
       tx.insert(widgets)
         .values({
           id: w.id,
-          dashboardId: id,
+          dashboardId: FAMILY_DASHBOARD_ID,
           type: w.type,
           config: w.config,
           createdAt: ts,
@@ -121,5 +97,5 @@ export function saveDashboard(deps: Deps, id: string, input: SaveDashboardInput)
         .run()
     }
   })
-  return load(deps, id) as Dashboard
+  return load(deps) as Dashboard
 }

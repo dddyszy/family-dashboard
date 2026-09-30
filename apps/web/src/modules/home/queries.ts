@@ -1,12 +1,12 @@
 import type { SaveDashboardInput } from '@shared/schemas/dashboard'
 import type { HomeData } from '@shared/schemas/home'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { type DashboardKind, homeApi } from './api'
+import { homeApi } from './api'
 
 export const homeKeys = {
   home: ['home'] as const,
   weather: ['weather'] as const,
-  dashboard: (kind: DashboardKind) => ['dashboard', kind] as const,
+  dashboard: ['dashboard'] as const,
 }
 
 export function useHome() {
@@ -37,19 +37,14 @@ export function useWeather() {
   })
 }
 
-export function useDashboard(kind: DashboardKind, enabled = true) {
-  return useQuery({
-    queryKey: homeKeys.dashboard(kind),
-    queryFn: () => homeApi.dashboard(kind),
-    enabled,
-  })
+export function useDashboard() {
+  return useQuery({ queryKey: homeKeys.dashboard, queryFn: homeApi.dashboard })
 }
 
-export function useSaveDashboard(kind: DashboardKind) {
+export function useSaveDashboard() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: SaveDashboardInput }) =>
-      homeApi.saveDashboard(id, input),
-    onSuccess: (dashboard) => qc.setQueryData(homeKeys.dashboard(kind), dashboard),
+    mutationFn: (input: SaveDashboardInput) => homeApi.saveDashboard(input),
+    onSuccess: (dashboard) => qc.setQueryData(homeKeys.dashboard, dashboard),
   })
 }
