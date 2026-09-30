@@ -1,12 +1,8 @@
+# 使用 GitHub Actions 预先构建好的镜像，NAS 上无需源码和构建环境。
 services:
   app:
-    image: family-dashboard:latest
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      args:
-        # 国内网络构建慢时可在 .env 中设置，例如 https://registry.npmmirror.com
-        NPM_REGISTRY: ${NPM_REGISTRY:-}
+    # 国内拉取慢时，在 .env 中把 IMAGE 改为阿里云镜像地址
+    image: ${IMAGE:-ghcr.io/dddyszy/family-dashboard:latest}
     container_name: family-dashboard
     restart: unless-stopped
     ports:
