@@ -1,6 +1,6 @@
 # Docker Compose 部署指南
 
-适用版本：**v0.2.0**。默认固定到该版本镜像；变更与升级注意事项见 [更新日志](../CHANGELOG.md)。
+适用版本：**v0.2.1**。默认固定到该版本镜像；变更与升级注意事项见 [更新日志](../CHANGELOG.md)。
 
 本文适用于支持 Docker 的 NAS、Linux 服务器和小主机。使用已发布镜像运行一个看板容器，通过 `http://服务器内网IP:8686` 访问。服务器上不需要安装 Bun、Node.js、外部数据库或下载项目源码。
 
@@ -113,7 +113,7 @@ openssl rand -hex 32
 services:
   app:
     # 升级版本或切换镜像源时，直接修改此地址；镜像需已实际发布。
-    image: ghcr.io/dddyszy/family-dashboard:v0.2.0
+    image: ghcr.io/dddyszy/family-dashboard:v0.2.1
     container_name: family-dashboard
     restart: unless-stopped
     ports:
@@ -136,7 +136,7 @@ services:
 
 | 配置项 | 作用与修改方法 |
 | --- | --- |
-| `image` | 使用已发布镜像；默认固定为 `v0.2.0`。升级版本或换镜像源时直接修改这一行 |
+| `image` | 使用已发布镜像；默认固定为 `v0.2.1`。升级版本或换镜像源时直接修改这一行 |
 | `container_name` | 容器名，默认 `family-dashboard`；同一主机上不能存在两个同名容器 |
 | `restart: unless-stopped` | 容器异常退出或 Docker 重启后自动恢复；手动停止的容器不会因此自动启动 |
 | `ports` | `宿主机端口:容器端口`；客户端访问左边的端口 |
@@ -323,10 +323,10 @@ sudo docker compose logs --tail=100 app
 
 ### 8.1 latest、dev 与固定版本
 
-- 只有推送 `v*` Git 标签才会构建镜像。正式版本（例如 `v0.2.0`）发布同名镜像标签 `v0.2.0`、版本别名 `0.2.0` / `0.2`，并更新 `latest`；预发布版本（例如 `v0.3.0-rc.1`）不更新 `latest`。
+- 只有推送 `v*` Git 标签才会构建镜像。正式版本（例如 `v0.2.1`）发布同名镜像标签 `v0.2.1`、版本别名 `0.2.1` / `0.2`，并更新 `latest`；预发布版本（例如 `v0.3.0-rc.1`）不更新 `latest`。
 - 仅推送 `master` 或 `dev` **不会构建镜像或更新 `latest`**。合并代码后还需要推送版本标签；源码中的新功能不一定已包含在你拉取的镜像中。
 - 版本标签和 `sha-<提交号>` 只有在对应工作流已成功构建并推送后才可拉取。不要假定存在 `:dev` 或任意示例版本。
-- 本文和仓库 Compose 默认使用 `v0.2.0`，后续发布不会自动改变这一固定版本。希望跟随正式发布时，可将镜像标签改为 `latest`，再手动拉取并重建容器。
+- 本文和仓库 Compose 默认使用 `v0.2.1`，后续发布不会自动改变这一固定版本。希望跟随正式发布时，可将镜像标签改为 `latest`，再手动拉取并重建容器。
 - `latest` 可以指向不同构建。需要稳定复现时，在 `image` 中使用实际已发布的版本标签或仓库摘要。
 
 版本信息与发布规则见 [镜像自动构建](CI_IMAGE.md)。换用其他镜像源时，也要先确认维护者已将所需版本发布到那个仓库，再修改 `services.app.image`；无需增加环境变量文件。
@@ -348,7 +348,7 @@ sudo docker image inspect "$dashboard_image_id" --format '{{json .RepoDigests}}'
 
 ### 8.2 升级步骤
 
-先阅读目标版本的 [更新日志](../CHANGELOG.md)，按第 9 节完成外部备份并记录当前镜像。使用固定版本时，先把 Compose 的 `image` 改成目标已发布标签（本次为 `ghcr.io/dddyszy/family-dashboard:v0.2.0`）；只拉取旧标签不会升级到新版本。然后执行：
+先阅读目标版本的 [更新日志](../CHANGELOG.md)，按第 9 节完成外部备份并记录当前镜像。使用固定版本时，先把 Compose 的 `image` 改成目标已发布标签（本次为 `ghcr.io/dddyszy/family-dashboard:v0.2.1`）；只拉取旧标签不会升级到新版本。然后执行：
 
 ```bash
 sudo docker compose pull app

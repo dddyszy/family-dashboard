@@ -2,7 +2,7 @@
 services:
   app:
     # 升级版本或切换镜像源时，直接修改此地址；镜像需已实际发布。
-    image: ghcr.io/dddyszy/family-dashboard:v0.2.0
+    image: ghcr.io/dddyszy/family-dashboard:v0.2.1
     container_name: family-dashboard
     restart: unless-stopped
     ports:
