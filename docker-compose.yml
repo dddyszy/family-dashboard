@@ -1,4 +1,4 @@
-# 使用 GitHub Actions 预先构建好的镜像，NAS 上无需源码和构建环境。
+# 使用已发布镜像，服务器上无需源码和构建环境。
 services:
   app:
     # 切换镜像源或固定版本时，直接修改此地址；镜像需已实际发布。
@@ -12,6 +12,6 @@ services:
     environment:
       # 必填：执行 openssl rand -hex 32，将输出粘贴到引号内；空值无法启动。
       APP_SECRET: ""
-      # HTTPS 配置完成后填写，例如 "https://dash.example.com"。
+      # 按本文通过内网 IP + 端口访问时，保持为空。
       PUBLIC_URL: ""
       TZ: Asia/Shanghai
