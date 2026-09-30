@@ -12,6 +12,7 @@ import { authRoutes } from './routes/auth'
 import { dashboardRoutes } from './routes/dashboards'
 import { deviceRoutes } from './routes/devices'
 import { settingsRoutes } from './routes/settings'
+import { shoppingRoutes } from './routes/shopping'
 import { streamRoutes } from './routes/stream'
 import { uploadRoutes } from './routes/uploads'
 import { userRoutes } from './routes/users'
@@ -34,6 +35,7 @@ export function createApp(deps: Deps, options: AppOptions = {}) {
     .route('/', streamRoutes)
     .route('/', uploadRoutes)
     .route('/', dashboardRoutes)
+    .route('/', shoppingRoutes)
 
   api.onError((error, c) => {
     if (error instanceof AppError) {

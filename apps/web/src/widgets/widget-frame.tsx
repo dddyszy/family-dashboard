@@ -7,6 +7,7 @@ import { ErrorBoundary } from '@/components/error-boundary'
 import { Glass } from '@/components/glass'
 import { cn } from '@/lib/cn'
 import { useUi } from '@/stores/ui'
+import { ReadOnlyContext } from './read-only'
 import { parseWidgetConfig, type WidgetDefinition } from './registry'
 
 type Props = {
@@ -61,11 +62,13 @@ export function WidgetFrame({
                 </div>
               }
             >
-              <definition.component
-                size={size}
-                config={parseWidgetConfig(definition, config)}
-                instanceId={instanceId}
-              />
+              <ReadOnlyContext.Provider value={Boolean(readOnly)}>
+                <definition.component
+                  size={size}
+                  config={parseWidgetConfig(definition, config)}
+                  instanceId={instanceId}
+                />
+              </ReadOnlyContext.Provider>
             </Suspense>
           </ErrorBoundary>
         ) : (
