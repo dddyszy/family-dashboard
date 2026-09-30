@@ -71,4 +71,5 @@ export function listDevices(deps: Deps): DeviceSummary[] {
 export function revokeDevice(deps: Deps, id: string): void {
   const ts = deps.now()
   deps.db.update(devices).set({ revokedAt: ts, updatedAt: ts }).where(eq(devices.id, id)).run()
+  deps.hub.disconnect({ deviceId: id })
 }

@@ -44,22 +44,30 @@ export function clearAuthCookie(c: Context, name: AuthCookie): void {
   deleteCookie(c, name, { path: '/', secure: isSecure(c) })
 }
 
-export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
+/** Resolves the session or device cookie; SSE streams call it again to notice revocation. */
+export function resolveActor(c: Context<AppEnv>): Actor | null {
   const { deps } = c.var
-  let actor: Actor | null = null
   const sessionToken = getAuthCookie(c, SESSION_COOKIE)
   if (sessionToken) {
     const user = resolveSession(deps, sessionToken)
-    if (user) actor = { kind: 'user', user }
+    if (user) return { kind: 'user', user }
   }
-  if (!actor) {
-    const deviceToken = getAuthCookie(c, DEVICE_COOKIE)
-    if (deviceToken) {
-      const device = resolveDevice(deps, deviceToken)
-      if (device) actor = { kind: 'device', device }
-    }
+  const deviceToken = getAuthCookie(c, DEVICE_COOKIE)
+  if (deviceToken) {
+    const device = resolveDevice(deps, deviceToken)
+    if (device) return { kind: 'device', device }
   }
-  c.set('actor', actor)
+  return null
+}
+
+export function isSameActor(a: Actor | null, b: Actor): boolean {
+  if (a?.kind === 'user' && b.kind === 'user') return a.user.id === b.user.id
+  if (a?.kind === 'device' && b.kind === 'device') return a.device.id === b.device.id
+  return false
+}
+
+export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
+  c.set('actor', resolveActor(c))
   await next()
 }
 

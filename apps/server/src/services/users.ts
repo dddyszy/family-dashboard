@@ -96,6 +96,7 @@ export async function updateUser(deps: Deps, id: string, input: UpdateUserInput)
     deps.db.delete(sessions).where(eq(sessions.userId, id)).run()
   }
   deps.db.update(users).set(patch).where(eq(users.id, id)).run()
+  if (input.password !== undefined) deps.hub.disconnect({ userId: id })
   return getUser(deps, id)
 }
 
@@ -104,6 +105,7 @@ export function deleteUser(deps: Deps, id: string, actingUserId: string): void {
   const target = getUser(deps, id)
   assertKeepsAnAdmin(deps, target)
   deps.db.delete(users).where(eq(users.id, id)).run()
+  deps.hub.disconnect({ userId: id })
 }
 
 export async function updateMe(deps: Deps, user: UserRow, input: UpdateMeInput): Promise<UserRow> {
