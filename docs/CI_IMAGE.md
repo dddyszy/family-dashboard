@@ -52,10 +52,10 @@
 
 ### 3. NAS 上使用阿里云镜像
 
-在 NAS 的 `.env` 中加一行：
+确认上述镜像已成功发布后，在 NAS 的 `docker-compose.yml` 中修改 `services.app.image`（下方仅展示该字段，保留其余配置）：
 
-```bash
-IMAGE=registry.cn-hangzhou.aliyuncs.com/dddyszy/family-dashboard:latest
+```yaml
+    image: registry.cn-hangzhou.aliyuncs.com/dddyszy/family-dashboard:latest
 ```
 
 ## 发布流程
@@ -78,4 +78,4 @@ docker compose pull
 docker compose up -d
 ```
 
-想固定在某个版本、不自动跟随 `latest`，把 `.env` 中的 `IMAGE` 写成带版本号的地址，例如 `ghcr.io/dddyszy/family-dashboard:0.1.0`。
+想固定在某个版本、不自动跟随 `latest`，把 `docker-compose.yml` 中的 `services.app.image` 写成实际已发布的版本地址，例如 `ghcr.io/dddyszy/family-dashboard:0.1.0`。

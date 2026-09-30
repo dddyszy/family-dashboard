@@ -202,7 +202,6 @@ family-dashboard/
     Dockerfile
   .github/workflows/docker.yml    # 镜像自动构建
   docker-compose.yml              # 使用预构建镜像部署
-  .env.example
   docs/
     TECH_DESIGN.md
     DEPLOY_SYNOLOGY.md            # 群晖部署指南
@@ -862,21 +861,26 @@ Tailwind v4 通过 `@theme` 把这些变量映射为工具类（例如 `bg-glass
 **镜像构建与分发**
 
 - `.github/workflows/docker.yml`：推送到 `master` 时构建 `latest`，推送 `v*` 标签时构建对应版本号；同时构建 `linux/amd64` 和 `linux/arm64`，推送到 GHCR（`ghcr.io/dddyszy/family-dashboard`），配置了阿里云 Secrets 时同时推送到阿里云容器镜像服务。详见 [`docs/CI_IMAGE.md`](CI_IMAGE.md)
-- `docker-compose.yml`：直接使用预构建镜像，镜像地址可通过 `.env` 中的 `IMAGE` 覆盖（切换到阿里云或固定版本）；NAS 上只需要这个文件和 `.env`，不在 NAS 上编译
+- `docker-compose.yml`：直接使用预构建镜像，通过 `services.app.image` 切换镜像源或固定版本，环境变量直接填写在 `services.app.environment`；NAS 上只需要这个配置文件，不在 NAS 上编译
 
 ```yaml
+# 使用 GitHub Actions 预先构建好的镜像，NAS 上无需源码和构建环境。
 services:
   app:
-    image: ${IMAGE:-ghcr.io/dddyszy/family-dashboard:latest}
+    # 切换镜像源或固定版本时，直接修改此地址；镜像需已实际发布。
+    image: ghcr.io/dddyszy/family-dashboard:latest
+    container_name: family-dashboard
     restart: unless-stopped
     ports:
       - "8686:8686"
     volumes:
       - ./data:/app/data
     environment:
-      - APP_SECRET=${APP_SECRET}
-      - PUBLIC_URL=${PUBLIC_URL}
-      - TZ=Asia/Shanghai
+      # 必填：执行 openssl rand -hex 32，将输出粘贴到引号内；空值无法启动。
+      APP_SECRET: ""
+      # HTTPS 配置完成后填写，例如 "https://dash.example.com"。
+      PUBLIC_URL: ""
+      TZ: Asia/Shanghai
 ```
 
 **数据目录 `./data`**
@@ -892,13 +896,13 @@ data/
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
-| `APP_SECRET` | 是 | 用于签名和加密，至少 32 位随机字符串 |
-| `PUBLIC_URL` | 是 | 对外的 HTTPS 地址，用于 Cookie 的 Secure 标记、CSRF 校验和 manifest |
+| `APP_SECRET` | 是 | 生产环境启动必填，至少 32 个字符的随机字符串 |
+| `PUBLIC_URL` | 否 | 内网 IP + HTTP 访问时留空；HTTPS 配置完成后填写最终访问地址，用于 Cookie 的 Secure 标记和请求来源校验 |
 | `TZ` | 否 | 容器时区，默认 `Asia/Shanghai` |
 | `PORT` | 否 | 监听端口，默认 8686 |
 | `DATA_DIR` | 否 | 数据目录，默认 `/app/data` |
-| `IMAGE` | 否 | 镜像地址，默认 `ghcr.io/dddyszy/family-dashboard:latest`，可改为阿里云地址或固定版本 |
-变量模板见仓库根目录的 `.env.example`。
+
+以上为容器环境变量，直接在仓库根目录 `docker-compose.yml` 的 `environment` 中填写。镜像地址通过 `image` 字段配置，不是应用环境变量。修改配置后执行 `docker compose up -d` 重建容器，普通 `restart` 不会加载配置变更。
 
 天气位置等运行期可调的配置放在设置页中，存入 `settings` 表，而不是环境变量。
 
@@ -912,7 +916,9 @@ data/
 
 - `docker compose pull && docker compose up -d`；服务启动时自动执行未应用的数据库迁移，迁移前先自动备份一次
 
-### 13.2 HTTPS：群晖反向代理
+内网也可以直接使用 `http://NAS内网IP:8686`，保持 `PUBLIC_URL` 为空，无需反向代理即可初始化、登录并使用日程、购物清单和 SSE。普通内网 IP 的 HTTP 页面不具备安全上下文，不能使用 Service Worker、离线缓存或 Wake Lock，PWA 安装也受限；当前首页新增卡片调用 `crypto.randomUUID()`，在该环境下不可用，需要通过 HTTPS 操作。具体配置与功能边界见两份 NAS 部署指南。
+
+### 13.2 可选 HTTPS：群晖反向代理
 
 完整步骤见 [`docs/DEPLOY_SYNOLOGY.md`](DEPLOY_SYNOLOGY.md)；飞牛 fnOS 及其他没有自带反向代理的 NAS 见 [`docs/DEPLOY_FNOS.md`](DEPLOY_FNOS.md)（使用 Nginx Proxy Manager）。群晖的要点如下。
 

@@ -30,26 +30,30 @@
 - 后端：[Bun](https://bun.sh) + [Hono](https://hono.dev) + SQLite（[Drizzle ORM](https://orm.drizzle.team)），单进程、单数据库文件，不依赖 Redis 等外部服务
 - 前端：React 19 + Vite + Tailwind CSS v4 + TanStack Query + wouter，首屏 JS 约 138KB（gzip）
 - 实时：SSE（Server-Sent Events）
-- 部署：单个 Docker 容器，GitHub Actions 自动构建多架构镜像（GHCR / 阿里云），NAS 反向代理提供 HTTPS
+- 部署：单个 Docker 容器，GitHub Actions 自动构建多架构镜像（GHCR / 阿里云），可通过内网 IP + 端口访问，按需用反向代理提供 HTTPS
 
 详细设计见 [技术设计文档](docs/TECH_DESIGN.md)。
 
 ## 部署
 
-需要一台能运行 Docker 的 NAS 或 Linux 主机。镜像由 GitHub Actions 自动构建（支持 x86 和 ARM），服务器上只需要两个配置文件：
+需要一台能运行 Docker 的 NAS 或 Linux 主机。镜像由 GitHub Actions 自动构建（支持 amd64 和 arm64），服务器上只需要一个 `docker-compose.yml`：
 
 ```bash
 mkdir family-dashboard && cd family-dashboard
 curl -fsSLO https://raw.githubusercontent.com/dddyszy/family-dashboard/master/docker-compose.yml
-curl -fsSL -o .env https://raw.githubusercontent.com/dddyszy/family-dashboard/master/.env.example
-# 编辑 .env，填写 APP_SECRET（openssl rand -hex 32 生成）
+# 编辑 docker-compose.yml，在 environment 中填写 APP_SECRET（openssl rand -hex 32 生成）
+# 配置 HTTPS 后，同样在 environment 中填写 PUBLIC_URL
 docker compose up -d
 ```
 
-启动后访问 `http://服务器IP:8686`。升级只需 `docker compose pull && docker compose up -d`。国内拉取慢时可以改用阿里云镜像，见 [镜像自动构建](docs/CI_IMAGE.md)。正式使用需要配置 HTTPS（PWA、离线缓存和大屏常亮都依赖它），按你的 NAS 选择对应文档：
+启动后访问 `http://服务器IP:8686`。升级只需 `docker compose pull && docker compose up -d`。切换镜像源或固定版本时直接修改 Compose 的 `image`；阿里云镜像需维护者已实际发布，见 [镜像自动构建](docs/CI_IMAGE.md)。
 
-- [群晖 Synology 部署指南](docs/DEPLOY_SYNOLOGY.md)（使用 DSM 自带的反向代理和证书）
-- [飞牛 fnOS 部署指南](docs/DEPLOY_FNOS.md)（使用 Nginx Proxy Manager，其他 Linux / NAS 也可参考）
+内网可直接通过 HTTP 初始化、登录，使用日程、购物清单和实时同步，`PUBLIC_URL` 保持为空。HTTP 下不支持 Service Worker、离线缓存和 Wake Lock，PWA 安装也受限；当前新增首页卡片使用 `crypto.randomUUID()`，同样需要 HTTPS。需要这些功能时再配置反向代理。
+
+两种访问方式的步骤见：
+
+- [群晖 Synology 部署指南](docs/DEPLOY_SYNOLOGY.md)（IP 直连 / 可选 DSM 反向代理和证书）
+- [飞牛 fnOS 部署指南](docs/DEPLOY_FNOS.md)（IP 直连 / 可选 Nginx Proxy Manager，其他 Linux / NAS 也可参考）
 
 数据保存在 `data/` 目录中，每天凌晨 2 点自动备份，保留最近 7 份。管理员可以在「设置 → 数据」中手动备份、导出 JSON，或一键重置数据（清空数据 / 恢复出厂，执行前自动备份）。
 
